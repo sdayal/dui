@@ -39,9 +39,13 @@ $.extend(DUI.Class.prototype, {
     },
     
     _bootstrap: function() {
+        //"this" needs to temporarily refer to the final class, not DUI
         var copy = function() {
-            copy.prototype.init.apply(copy, arguments);
-        };
+            return function() {
+                this.init.apply(this, arguments);
+            }
+        }.apply(copy);
+        
         $.extend(copy.prototype, this.prototype);
         return copy.prototype.create.apply(copy, arguments);
     },
