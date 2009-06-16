@@ -40,7 +40,7 @@ $.extend(DUI.Class.prototype, {
     
     _bootstrap: function() {
         var copy = function() {
-            copy.init.apply(copy, arguments);
+            copy.prototype.init.apply(copy, arguments);
         };
         $.extend(copy.prototype, this.prototype);
         return copy.prototype.create.apply(copy, arguments);
