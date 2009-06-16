@@ -30,8 +30,6 @@ DUI.Class = function() {
 }
 
 $.extend(DUI.Class.prototype, {
-    _supers: {},
-    
     _ident: {
         library: "DUI.Class",
         version: "0.1.0",
@@ -81,7 +79,7 @@ $.extend(DUI.Class.prototype, {
         if(s) _class.prototype._ident.dynamic = false;
         
         //This is where it gets weird: Copy helpers in from the proto
-        $.each(['_ident', '_supers', 'create'], function() {
+        $.each(['_ident', 'create'], function() {
             _class[this] = _class.prototype[this];
         });
         
@@ -97,16 +95,6 @@ $.extend(DUI.Class.prototype, {
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
                  * we overwrite each property instead of the whole namespace. */
                 $.each(payload, function(i) {
-                    /* If a property is a function and it already exists in the class, save it as a super.
-                     * Note that this only saves the last occurrence. */
-                    if($.isFunction(extendee[i])) {
-                        //Since Function.name is almost never set for us, do it manually
-                        this.name = extendee[i].name = i;
-                        
-                        //Throw the existing function into this.supers before it's overwritten
-                        extendee._supers[i] = extendee[i];
-                    }
-                    
                     //Special case! If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
                     if(i == 'dontEnum' && this.constructor == Array) {
                         extendee._dontEnum = $.merge(extendee._dontEnum, this);
@@ -119,16 +107,6 @@ $.extend(DUI.Class.prototype, {
         });
         
         return _class;
-    },
-    
-    //Call the super of a method
-    sup: function() {
-        try {
-            var caller = this.sup.caller.name;
-            return this.supers[caller].apply(this, arguments);
-        } catch(noSuper) {
-            throw new Error('Method "' + this.sup.caller.name + ' has no super.');
-        }
     }
 });
 
