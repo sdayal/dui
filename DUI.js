@@ -31,7 +31,7 @@
  * @module DUI
  * @author Micah Snyder <micah@digg.com>
  * @description The Digg User Interface Library
- * @version 0.0.4
+ * @version 0.0.5
  * @link http://code.google.com/p/digg
  *
  */
@@ -51,7 +51,26 @@
 
 /* Create our top-level namespace */
 DUI = {
-    version: "0.0.4"
+    //Simple check so see if the object passed in is a DUI Class
+    isClass: function(check, type)
+    {
+        //false: check for dynamic, true: check for static, null: either type
+        type = type || null;
+        
+        try {
+            if(check._ident.library == 'DUI.Class') {
+                if(type == null
+                || (type == false && check._ident.dynamic)
+                || (type == true && !check._ident.dynamic)) {
+                    return true;
+                }
+            }
+        } catch(noIdentUhOh) {
+            return false;
+        }
+        
+        return false;
+    }
 };
 
 /**
@@ -69,8 +88,8 @@ DUI.Class = {
      * @param {optional Boolean} static If the last argument is Boolean, it will be treated as the static flag. Defaults to false (dynamic)
      */
     create: function() {
-        //Set _this to DUI.Class
-        var _this = this;
+        //We juggle a few different instances of "this" around, so for clarity: _class == DUI.Class
+        var _class = this;
         
         //Figure out if we're creating a static or dynamic class
         var s = (arguments.length > 0 && //if we have arguments...
@@ -87,12 +106,12 @@ DUI.Class = {
         var methods = {
             _ident: {
                 library: "DUI.Class",
-                version: "0.0.4",
+                version: "0.0.5",
                 dynamic: true
             },
             
             //_dontEnum should exist in our classes as well
-            _dontEnum: this._dontEnum,
+            _dontEnum: _class._dontEnum,
             
             //A basic namespace container to pass objects through
             ns: [],
@@ -153,7 +172,7 @@ DUI.Class = {
                 $.each(levels, function() {
                     /* When adding a namespace check to see, in order:
                      * 1) Does the ns exist in our ns passthrough object?
-                     * 2) Does the ns already exist in our class
+                     * 2) Does the ns already exist in our class ?
                      * 3) Does the ns exist as a global var?
                      *    NOTE: Support for this was added so that you can namespace classes
                      *    into other classes, i.e. MyContainer.namespace('MyUtilClass'). this
@@ -247,30 +266,34 @@ DUI.Class = {
         
         //Loop through arguments. If they're the right type, tack them on
         $.each(arguments, function() {
-            //Either we're passing in an object full of methods, or the prototype of an existing class
-            if(this.constructor == Object || typeof this.init != undefined) {
+            var arg = this;
+            
+            //Either we're passing in an object full of methods, or an existing class
+            if(arg.constructor == Object || DUI.isClass(arg)) {
+                //If arg is a dynamic class, pull from its prototype
+                var payload = DUI.isClass(arg, false) ? arg.prototype : arg;
+                
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
-                 * we overwrite each property instead of the whole namespace. Also: we omit the 'namespace'
-                 * helper method that DUI.Class tacks on, as there's no point in storing it as a super */
-                for(i in this) {
-                    /* If a property is a function (other than our built-in helpers) and it already exists
-                     * in the class, save it as a super. note that this only saves the last occurrence */
-                    if($.isFunction(extendee[i]) && _this._dontEnum.indexOf(i) == -1) {
-                        //since Function.name is almost never set for us, do it manually
-                        this[i].name = extendee[i].name = i;
+                 * we overwrite each property instead of the whole namespace. */
+                $.each(payload, function(i) {
+                    /* If a property is a function and it already exists in the class, save it as a super.
+                     * Note that this only saves the last occurrence. */
+                    if($.isFunction(extendee[i])) {
+                        //Since Function.name is almost never set for us, do it manually
+                        this.name = extendee[i].name = i;
                         
-                        //throw the existing function into this.supers before it's overwritten
+                        //Throw the existing function into this.supers before it's overwritten
                         extendee.supers[i] = extendee[i];
                     }
                     
                     //Special case! If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
-                    if(i == 'dontEnum' && this[i].constructor == Array) {
-                        extendee._dontEnum = $.merge(extendee._dontEnum, this[i]);
+                    if(i == 'dontEnum' && this.constructor == Array) {
+                        extendee._dontEnum = $.merge(extendee._dontEnum, this);
                     }
                     
-                    //extend the current property into our class
-                    extendee[i] = this[i];
-                }
+                    //Add the current property to our class
+                    extendee[i] = this;
+                });
             }
         });
         
@@ -279,25 +302,10 @@ DUI.Class = {
     }
 };
 
+/* Turn DUI into a static class whose contents are DUI.
+   Now you can use DUI's tools on DUI itself, i.e. DUI.create('Foo');
+   I'm pretty sure this won't melt the known universe, but caveat emptor. */
+DUI = DUI.Class.create(DUI, true);
+
 })(jQuery);
 
-//Simple check so see if the object passed in is a DUI Class
-DUI.isClass = function(check, type)
-{
-    type = type || false;
-    
-    try {
-        if(check._ident.library == 'DUI.Class') {
-            if((type == 'dynamic' && !check._ident.dynamic)
-               || (type == 'static' && check._ident.dynamic)) {
-                return false;
-            }
-            
-            return true;
-        }
-    } catch(noIdentUhOh) {
-        return false;
-    }
-    
-    return false;
-}
