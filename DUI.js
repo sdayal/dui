@@ -32,7 +32,7 @@
  * @author Micah Snyder <micah@digg.com>
  * @description The Digg User Interface Library
  * @version 1.0.0
- * @link http://code.google.com/p/digg
+ * @link http://github.com/digg/dui
  *
  */
 
