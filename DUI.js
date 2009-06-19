@@ -1,57 +1,8 @@
-/**
- * DUI: The Digg User Interface Library
- *
- * Copyright (c) 2008-2009, Digg, Inc.
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the following conditions are met:
- *
- * - Redistributions of source code must retain the above copyright notice, 
- *   this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above copyright notice, 
- *   this list of conditions and the following disclaimer in the documentation 
- *   and/or other materials provided with the distribution.
- * - Neither the name of the Digg, Inc. nor the names of its contributors 
- *   may be used to endorse or promote products derived from this software 
- *   without specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @module DUI
- * @author Micah Snyder <micah@digg.com>
- * @description The Digg User Interface Library
- * @version 0.0.5
- * @link http://code.google.com/p/digg
- *
- */
-
-/* Add Array.prototype.indexOf -- Guess which major browser doesn't support it natively yet? */
-[].indexOf || (Array.prototype.indexOf = function(v, n){
-    n = (n == null) ? 0 : n; var m = this.length;
-    
-    for(var i = n; i < m; i++) {
-        if(this[i] == v) return i;
-    }
-    
-    return -1;
-});
-
 (function($) {
 
 /* Create our top-level namespace */
 DUI = {
-    //Simple check so see if the object passed in is a DUI Class
+    //Simple check so see if the first argument passed in is a DUI Class
     isClass: function(check, type)
     {
         //false: check for dynamic, true: check for static, null: either type
@@ -65,204 +16,79 @@ DUI = {
                     return true;
                 }
             }
-        } catch(noIdentUhOh) {
-            return false;
-        }
+        } catch(noIdentUhOh) {}
         
         return false;
+    },
+    
+    //Operate on a namespace at the global level
+    global: function()
+    {
+        return DUI.Class.prototype.ns.apply(window, arguments);
     }
 };
 
-/**
- * @class Class Class creation and management for use with jQuery. Class is a singleton that handles static and dynamic classes, as well as namespaces
- */
-DUI.Class = {
-    /**
-     * @var {Array} _dontEnum Internal array of keys to omit when looking through a class' properties. Once the real DontEnum bit is writable we won't have to deal with this.
-     */
-    _dontEnum: ['_ident', '_dontEnum', 'create', 'namespace', 'ns', 'supers', 'sup', 'init', 'each'],
+DUI.Class = function()
+{
+    //Sugar for "myClass = new DUI.Class()" usage
+    return this.constructor.prototype._bootstrap.apply(this.constructor, arguments);
+}
+
+$.extend(DUI.Class.prototype, {
+    _dontEnum: ['prototype', '_dontEnum', '_ident', '_bootstrap', 'init', 'create', 'ns', 'each'],
     
-    /**
-     * @function create Make a class! Do work son, do work
-     * @param {optional Object} methods Any number of objects can be passed in as arguments to be added to the class upon creation
-     * @param {optional Boolean} static If the last argument is Boolean, it will be treated as the static flag. Defaults to false (dynamic)
-     */
-    create: function() {
-        //We juggle a few different instances of "this" around, so for clarity: _class == DUI.Class
+    _ident: {
+        library: "DUI.Class",
+        version: "1.0.0RC1",
+        dynamic: true
+    },
+    
+    _bootstrap: function()
+    {
+        //"this" needs to temporarily refer to the final class, not DUI
+        var copy = function() {
+            return function() {
+                this.init.apply(this, arguments);
+            }
+        }.apply(copy);
+        
+        $.extend(copy.prototype, this.prototype);
+        return copy.prototype.create.apply(copy, arguments);
+    },
+    
+    init: function()
+    { /* Constructor for created classes */ },
+    
+    create: function()
+    {
+        //For clarity, let's get rid of an instance of "this" in the code
         var _class = this;
         
-        //Figure out if we're creating a static or dynamic class
-        var s = (arguments.length > 0 && //if we have arguments...
-                arguments[arguments.length - 1].constructor == Boolean) ? //...and the last one is Boolean...
-                    arguments[arguments.length - 1] : //...then it's the static flag...
-                    false; //...otherwise default to a dynamic class
-        
-        //Static: Object, dynamic: Function
-        var c = s ? {} : function() {
-            this.init.apply(this, arguments);
-        }
-        
-        //All of our classes have these in common
-        var methods = {
-            _ident: {
-                library: "DUI.Class",
-                version: "0.0.5",
-                dynamic: true
-            },
-            
-            //_dontEnum should exist in our classes as well
-            _dontEnum: _class._dontEnum,
-            
-            //A basic namespace container to pass objects through
-            ns: [],
-            
-            //A container to hold one level of overwritten methods
-            supers: {},
-            
-            //A constructor
-            init: function() {},
-            
-            //Our namespace function
-            namespace:function(ns) {
-                //Don't add nothing
-                if (!ns) return null;
-                
-                //Set _this to the current class, not the DUI.Class lib itself
-                var _this = this;
-                
-                //Handle ['ns1', 'ns2'... 'nsN'] format
-                if(ns.constructor == Array) {
-                    //Call namespace normally for each array item...
-                    $.each(ns, function() {
-                        _this.namespace.apply(_this, [this]);
-                    });
-                    
-                    //...then get out of this call to namespace
-                    return;
-                
-                //Handle {'ns': contents} format
-                } else if(ns.constructor == Object) {
-                    //Loop through the object passed to namespace
-                    for(var key in ns) {
-                        //Only operate on Objects and Functions
-                        if([Object, Function].indexOf(ns[key].constructor) > -1) {
-                            //In case this.ns has been deleted
-                            if(!this.ns) this.ns = [];
-                            
-                            //Copy the namespace into an array holder
-                            this.ns[key] = ns[key];
-                            
-                            //Apply namespace, this will be caught by the ['ns1', 'ns2'... 'nsN'] format above
-                            this.namespace.apply(this, [key]);
-                        }
-                    }
-                    
-                    //We're done with namespace for now
-                    return;
-                }
-                
-                //Note: [{'ns': contents}, {'ns2': contents2}... {'nsN': contentsN}] is inherently handled by the above two cases
-                
-                var levels = ns.split(".");
-                
-                /* Dynamic classes are Functions, so we'll extend their prototype.
-                   Static classes are Objects, so we'll extend them directly */
-                var nsobj = this.prototype ? this.prototype : this;
-                
-                $.each(levels, function() {
-                    /* When adding a namespace check to see, in order:
-                     * 1) Does the ns exist in our ns passthrough object?
-                     * 2) Does the ns already exist in our class ?
-                     * 3) Does the ns exist as a global var?
-                     *    NOTE: Support for this was added so that you can namespace classes
-                     *    into other classes, i.e. MyContainer.namespace('MyUtilClass'). this
-                     *    behaviour is dangerously greedy though, so it may be removed.
-                     * 4) If none of the above, make a new static class
-                     */
-                    nsobj[this] = _this.ns[this] || nsobj[this] || window[this] || DUI.Class.create(true);
-                    
-                    /* If our parent and child are both dynamic classes, copy the child out of Parent.prototype and into Parent.
-                     * It seems weird at first, but this allows you to instantiate a dynamic sub-class without instantiating
-                     * its parent, e.g. var baz = new Foo.Bar();
-                     */
-                    if(_this.prototype && DUI.isClass(nsobj[this]) && nsobj[this].prototype) {
-                        _this[this] = nsobj[this];
-                    }
-                    
-                    //Remove our temp passthrough if it exists
-                    delete _this.ns[this];
-                    
-                    //Move one level deeper for the next iteration
-                     nsobj = nsobj[this];
-                });
-                
-                //TODO: Do we really need to return this? It's not that useful anymore
-                return nsobj;
-            },
-            
-            /* Create exists inside classes too. neat huh?
-             * Usage differs slightly: MyClass.create('MySubClass', { myMethod: function() }); */
-            create: function() {
-                //Turn arguments into a regular Array
-                var args = Array.prototype.slice.call(arguments);
-                
-                //Pull the name of the new class out
-                var name = args.shift();
-                
-                //Create a new class with the rest of the arguments
-                var temp = DUI.Class.create.apply(DUI.Class, args);
-                
-                //Load our new class into the {name: class} format to pass it into namespace()
-                var ns = {};
-                ns[name] = temp;
-                
-                //Put the new class into the current one
-                this.namespace(ns);
-            },
-            
-            //Iterate over a class' members, omitting built-ins
-            each: function(cb) {
-                if(!$.isFunction(cb)) {
-                    throw new Error('DUI.Class.each must be called with a function as its first argument.');
-                }
-                
-                //Set _this to the current class, not the DUI.Class lib itself
-                var _this = this;
-                
-                $.each(this, function(key) {
-                    if(_this._dontEnum.indexOf(key) != -1) return;
-                    
-                    cb.apply(this, [key, this]);
-                });
-            },
-            
-            //Call the super of a method
-            sup: function() {
-                try {
-                    var caller = this.sup.caller.name;
-                    this.supers[caller].apply(this, arguments);
-                } catch(noSuper) {
-                    return false;
-                }
-            }
-        }
-        
-        //Static classes don't need a constructor
-        s ? delete methods.init : null;
-        
-        //...nor should they be identified as dynamic classes
-        s ? methods._ident.dynamic = false : null;
-        
-        /* Put default methods into the class before anything else,
-         *   so that they'll be overwritten by the user-specified ones */
-        $.extend(c, methods);
-        
-        /* Second copy of methods for dynamic classes: They get our 
-         * common utils in their class definition AND their prototype */
-        if(!s) $.extend(c.prototype, methods);
+        //Get the last argument...
+        var s = Array.prototype.slice.apply(arguments).reverse()[0] || null;
+        //...and check to see if it's boolean: false (default) = dynamic class, true = static class
+        s = s !== null && s.constructor == Boolean ? s : false;
         
         //Static: extend the Object, Dynamic: extend the prototype
-        var extendee = s ? c : c.prototype;
+        var extendee = s ? _class : _class.prototype;
+        
+        
+        //Foo.create('Bar', {}) usage
+        if(arguments.length > 0 && arguments[0].constructor == String) {
+            var args = Array.prototype.slice.call(arguments);
+            var name = args.shift();
+            _class[name] = _class.create.apply(_class, args);
+            
+            return _class[name];
+        }
+        
+        //Change the ident for static classes
+        if(s) _class.prototype._ident.dynamic = false;
+        
+        //This is where it gets weird: Copy helpers in from the proto
+        $.each(['_dontEnum', '_ident', 'create', 'ns', 'each'], function() {
+            _class[this] = _class.prototype[this];
+        });
         
         //Loop through arguments. If they're the right type, tack them on
         $.each(arguments, function() {
@@ -276,16 +102,6 @@ DUI.Class = {
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
                  * we overwrite each property instead of the whole namespace. */
                 $.each(payload, function(i) {
-                    /* If a property is a function and it already exists in the class, save it as a super.
-                     * Note that this only saves the last occurrence. */
-                    if($.isFunction(extendee[i])) {
-                        //Since Function.name is almost never set for us, do it manually
-                        this.name = extendee[i].name = i;
-                        
-                        //Throw the existing function into this.supers before it's overwritten
-                        extendee.supers[i] = extendee[i];
-                    }
-                    
                     //Special case! If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
                     if(i == 'dontEnum' && this.constructor == Array) {
                         extendee._dontEnum = $.merge(extendee._dontEnum, this);
@@ -297,15 +113,87 @@ DUI.Class = {
             }
         });
         
-        //Shiny new class, ready to go
-        return c;
+        return _class;
+    },
+    
+    ns: function()
+    {
+        //only copies into the object, not the prototype. you shouldn't have to instantiate to get into a namespace
+        
+        if(arguments.length == 0) return false;
+        
+        var arg = arguments[0], levels = null;
+        
+        //foo.ns('bar'); --> creates foo.bar if it doesn't exist and returns it
+        //foo.ns('bar.baz'); --> creates foo.bar.baz if it doesn't exist and returns it
+        //foo.ns('bar.baz', 'lol'); --> creates foo.bar.baz if it doesn't exist, sets it to 'lol' and returns it
+        if(arg.constructor == String) {
+            var passthrough = {};
+            passthrough[arg] = arguments[1] ? arguments[1] : null;
+            
+            //return this.ns(passthrough);
+            
+            arg = passthrough;
+        }
+        
+        /* foo.ns({
+            bar: {
+                baz: 'hai'
+            }
+        }); --> creates / overwrites foo.bar with the anonymous object containing baz */
+        if(arg.constructor == Object) {
+            var _class = this, last = this;
+            
+            $.each(arg, function(nsName) {
+                //reset nsobj back to the top each time
+                var nsobj = _class;
+                var levels = nsName.split('.');
+                
+                $.each(levels, function(i) {
+                    //When adding a namespace check to see if there's a value being passed in for it
+                    if(i == levels.length - 1 && arg[nsName]) {
+                        nsobj[this] = arg[nsName];
+                        
+                    //...if not, check to see if the ns doesn't already exist in our class
+                    } else if(typeof nsobj[this] == 'undefined') {
+                        //...and make it a new static class
+                        nsobj[this] = new DUI.Class(true);
+                    }
+                    
+                    //Move one level deeper for the next iteration
+                    last = nsobj = nsobj[this];
+                });
+            });
+            
+            return last;
+        }
+    },
+    
+    each: function(iter)
+    {
+        if(!$.isFunction(iter)) {
+            throw new Error('DUI.Class.each must be called with a function as its first argument.');
+        }
+        
+        var _class = this;
+        
+        //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
+        /* $.each(this, function(key) {
+            if($.inArray(key, _class._dontEnum) != -1) return;
+            
+            iter.apply(this, [key, this]);
+        }); */
+        
+        for(var key in _class) {
+            if($.inArray(key, _class._dontEnum) == -1) {
+                var val = _class[key];
+                iter.apply(val, [key, val]);
+            }
+        }
     }
-};
+});
 
-/* Turn DUI into a static class whose contents are DUI.
-   Now you can use DUI's tools on DUI itself, i.e. DUI.create('Foo');
-   I'm pretty sure this won't melt the known universe, but caveat emptor. */
-DUI = DUI.Class.create(DUI, true);
+DUI = new DUI.Class(DUI, true);
 
 })(jQuery);
 
