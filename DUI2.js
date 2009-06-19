@@ -2,7 +2,7 @@
 
 /* Create our top-level namespace */
 DUI = {
-    //Simple check so see if the object passed in is a DUI Class
+    //Simple check so see if the first argument passed in is a DUI Class
     isClass: function(check, type)
     {
         //false: check for dynamic, true: check for static, null: either type
@@ -16,27 +16,35 @@ DUI = {
                     return true;
                 }
             }
-        } catch(noIdentUhOh) {
-            return false;
-        }
+        } catch(noIdentUhOh) {}
         
         return false;
+    },
+    
+    //Operate on a namespace at the global level
+    global: function()
+    {
+        return DUI.Class.prototype.ns.apply(window, arguments);
     }
 };
 
-DUI.Class = function() {
+DUI.Class = function()
+{
     //Sugar for "myClass = new DUI.Class()" usage
     return this.constructor.prototype._bootstrap.apply(this.constructor, arguments);
 }
 
 $.extend(DUI.Class.prototype, {
+    _dontEnum: ['prototype', '_dontEnum', '_ident', '_bootstrap', 'init', 'create', 'ns', 'each'],
+    
     _ident: {
         library: "DUI.Class",
-        version: "0.1.0",
+        version: "1.0.0RC1",
         dynamic: true
     },
     
-    _bootstrap: function() {
+    _bootstrap: function()
+    {
         //"this" needs to temporarily refer to the final class, not DUI
         var copy = function() {
             return function() {
@@ -58,8 +66,7 @@ $.extend(DUI.Class.prototype, {
         
         //Get the last argument...
         var s = Array.prototype.slice.apply(arguments).reverse()[0] || null;
-        //...and check to see if it's boolean.
-        //False (default): dynamic class, true: static class
+        //...and check to see if it's boolean: false (default) = dynamic class, true = static class
         s = s !== null && s.constructor == Boolean ? s : false;
         
         //Static: extend the Object, Dynamic: extend the prototype
@@ -79,7 +86,7 @@ $.extend(DUI.Class.prototype, {
         if(s) _class.prototype._ident.dynamic = false;
         
         //This is where it gets weird: Copy helpers in from the proto
-        $.each(['_ident', 'create'], function() {
+        $.each(['_dontEnum', '_ident', 'create', 'ns', 'each'], function() {
             _class[this] = _class.prototype[this];
         });
         
@@ -107,10 +114,86 @@ $.extend(DUI.Class.prototype, {
         });
         
         return _class;
+    },
+    
+    ns: function()
+    {
+        //only copies into the object, not the prototype. you shouldn't have to instantiate to get into a namespace
+        
+        if(arguments.length == 0) return false;
+        
+        var arg = arguments[0], levels = null;
+        
+        //foo.ns('bar'); --> creates foo.bar if it doesn't exist and returns it
+        //foo.ns('bar.baz'); --> creates foo.bar.baz if it doesn't exist and returns it
+        //foo.ns('bar.baz', 'lol'); --> creates foo.bar.baz if it doesn't exist, sets it to 'lol' and returns it
+        if(arg.constructor == String) {
+            var passthrough = {};
+            passthrough[arg] = arguments[1] ? arguments[1] : null;
+            
+            //return this.ns(passthrough);
+            
+            arg = passthrough;
+        }
+        
+        /* foo.ns({
+            bar: {
+                baz: 'hai'
+            }
+        }); --> creates / overwrites foo.bar with the anonymous object containing baz */
+        if(arg.constructor == Object) {
+            var _class = this, last = this;
+            
+            $.each(arg, function(nsName) {
+                //reset nsobj back to the top each time
+                var nsobj = _class;
+                var levels = nsName.split('.');
+                
+                $.each(levels, function(i) {
+                    //When adding a namespace check to see if there's a value being passed in for it
+                    if(i == levels.length - 1 && arg[nsName]) {
+                        nsobj[this] = arg[nsName];
+                        
+                    //...if not, check to see if the ns doesn't already exist in our class
+                    } else if(typeof nsobj[this] == 'undefined') {
+                        //...and make it a new static class
+                        nsobj[this] = new DUI.Class(true);
+                    }
+                    
+                    //Move one level deeper for the next iteration
+                    last = nsobj = nsobj[this];
+                });
+            });
+            
+            return last;
+        }
+    },
+    
+    each: function(iter)
+    {
+        if(!$.isFunction(iter)) {
+            throw new Error('DUI.Class.each must be called with a function as its first argument.');
+        }
+        
+        var _class = this;
+        
+        //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
+        /* $.each(this, function(key) {
+            if($.inArray(key, _class._dontEnum) != -1) return;
+            
+            iter.apply(this, [key, this]);
+        }); */
+        
+        for(var key in _class) {
+            if($.inArray(key, _class._dontEnum) == -1) {
+                var val = _class[key];
+                iter.apply(val, [key, val]);
+            }
+        }
     }
 });
 
-//DUI = new DUI.Class(DUI, true);
+DUI = new DUI.Class(DUI, true);
 
 })(jQuery);
 
