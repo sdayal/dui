@@ -1,11 +1,52 @@
+/**
+ * DUI: The Digg User Interface Library
+ *
+ * Copyright (c) 2008-2009, Digg, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * - Redistributions of source code must retain the above copyright notice, 
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice, 
+ *   this list of conditions and the following disclaimer in the documentation 
+ *   and/or other materials provided with the distribution.
+ * - Neither the name of the Digg, Inc. nor the names of its contributors 
+ *   may be used to endorse or promote products derived from this software 
+ *   without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @module DUI
+ * @author Micah Snyder <micah@digg.com>
+ * @description The Digg User Interface Library
+ * @version 1.0.0
+ * @link http://code.google.com/p/digg
+ *
+ */
+
 (function($) {
 
 /* Create our top-level namespace */
 DUI = {
-    //Simple check so see if the first argument passed in is a DUI Class
+    /**
+     * @function isClass Check so see if the first argument passed in is a DUI Class
+     * @param {mixed} check Object to check for classiness.
+     * @param {optional Boolean} type Look for a specific type of class. False: dynamic, true: static, (default) null: either type
+     */
     isClass: function(check, type)
     {
-        //false: check for dynamic, true: check for static, null: either type
         type = type || null;
         
         try {
@@ -21,31 +62,45 @@ DUI = {
         return false;
     },
     
-    //Operate on a namespace at the global level
+    /**
+     * @function global Operate on a global namespace
+     * @see DUI.Class.prototype.ns
+     */
     global: function()
     {
         return DUI.Class.prototype.ns.apply(window, arguments);
     }
 };
 
+/**
+ * @class DUI.Class Class creation and management for use with jQuery.
+ */
 DUI.Class = function()
 {
-    //Sugar for "myClass = new DUI.Class()" usage
     return this.constructor.prototype._bootstrap.apply(this.constructor, arguments);
 }
 
 $.extend(DUI.Class.prototype, {
+    /**
+     * @var {Array} _dontEnum Internal array of keys to omit when looking through a class' properties. Once the real DontEnum bit is writable we won't have to deal with this.
+     */
     _dontEnum: ['prototype', '_dontEnum', '_ident', '_bootstrap', 'init', 'create', 'ns', 'each'],
     
+    /**
+     * @var {Object} _ident Internal properties that describe this class
+     */
     _ident: {
         library: "DUI.Class",
-        version: "1.0.0RC1",
+        version: "1.0.0",
         dynamic: true
     },
     
+    /**
+     * @function _bootstrap Return a new class by passing the 'create' method through into a new function.
+     * @see DUI.Class.prototype.create
+     */
     _bootstrap: function()
     {
-        //"this" needs to temporarily refer to the final class, not DUI
         var copy = function() {
             return function() {
                 this.init.apply(this, arguments);
@@ -56,9 +111,20 @@ $.extend(DUI.Class.prototype, {
         return copy.prototype.create.apply(copy, arguments);
     },
     
+    /**
+     * @function init Constructor for created classes. Unused by DUI.Class itself.
+     */
     init: function()
-    { /* Constructor for created classes */ },
+    {},
     
+    /**
+     * @function create Make a class from DUI.Class' prototype. Do work son, do work.
+     * Usage 1: new DUI.Class(methods, static);
+     * Usage 2: MyClass.create('MySubClass', methods, static);
+     * @param {optional String} name Class name for sub-class in Usage 2.
+     * @param {optional Object} methods Any number of objects can be passed in as arguments to be added to the class upon creation
+     * @param {optional Boolean} static If the last argument is Boolean, it will be treated as the static flag. Defaults to false (dynamic)
+     */
     create: function()
     {
         //For clarity, let's get rid of an instance of "this" in the code
@@ -71,7 +137,6 @@ $.extend(DUI.Class.prototype, {
         
         //Static: extend the Object, Dynamic: extend the prototype
         var extendee = s ? _class : _class.prototype;
-        
         
         //Foo.create('Bar', {}) usage
         if(arguments.length > 0 && arguments[0].constructor == String) {
@@ -116,36 +181,34 @@ $.extend(DUI.Class.prototype, {
         return _class;
     },
     
+    /**
+     * @function ns Make a namespace within a class
+     * Usage 1: MyClass.ns('foo.bar');
+     * Usage 2: MyClass.ns('foo.bar', 'baz');
+     * @param {String} name Period separated list of namespaces to nest. MyClass.ns('foo.bar') makes MyClass['foo']['bar'].
+     * @param {optional mixed} value Set the contents of the deepest specified namespace to this value.
+     *
+     * Usage 3: MyClass.ns({ foo: 1, bar: 2 });
+     * @param {Object} contents List of name: value pairs to create. Note that 'foo.bar' syntax does not recurse.
+     */
     ns: function()
     {
-        //only copies into the object, not the prototype. you shouldn't have to instantiate to get into a namespace
-        
         if(arguments.length == 0) return false;
         
         var arg = arguments[0], levels = null;
         
-        //foo.ns('bar'); --> creates foo.bar if it doesn't exist and returns it
-        //foo.ns('bar.baz'); --> creates foo.bar.baz if it doesn't exist and returns it
-        //foo.ns('bar.baz', 'lol'); --> creates foo.bar.baz if it doesn't exist, sets it to 'lol' and returns it
         if(arg.constructor == String) {
             var passthrough = {};
             passthrough[arg] = arguments[1] ? arguments[1] : null;
             
-            //return this.ns(passthrough);
-            
             arg = passthrough;
         }
         
-        /* foo.ns({
-            bar: {
-                baz: 'hai'
-            }
-        }); --> creates / overwrites foo.bar with the anonymous object containing baz */
         if(arg.constructor == Object) {
             var _class = this, last = this;
             
             $.each(arg, function(nsName) {
-                //reset nsobj back to the top each time
+                //Reset nsobj back to the top each time
                 var nsobj = _class;
                 var levels = nsName.split('.');
                 
@@ -169,6 +232,11 @@ $.extend(DUI.Class.prototype, {
         }
     },
     
+    /**
+     * @function each Iterate through a Class' user-defined properties
+     * @param {Function} iter Iterator function that takes two optional arguments: key and value
+     * @see jQuery.each
+     */
     each: function(iter)
     {
         if(!$.isFunction(iter)) {
