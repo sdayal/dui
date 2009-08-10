@@ -47,13 +47,17 @@ DUI = {
      */
     isClass: function(check, type)
     {
-        type = type || null;
+        type = type === undefined ? null : Boolean(type);
+        
+        /* if(DUI.global('_ident.library', undefined, check)) {
+            
+        }; */
         
         try {
             if(check._ident.library == 'DUI.Class') {
-                if(type == null
-                || (type == false && check._ident.dynamic)
-                || (type == true && !check._ident.dynamic)) {
+                if(type === null
+                || (type === false && check._ident.dynamic)
+                || (type === true && !check._ident.dynamic)) {
                     return true;
                 }
             }
@@ -65,10 +69,48 @@ DUI = {
     /**
      * @function global Operate on a global namespace
      * @see DUI.Class.prototype.ns
-     */
-    global: function()
+     */ 
+    global: function(ns, value)
     {
-        return DUI.Class.prototype.ns.apply(window, arguments);
+        //DUI.global(['some.namespace', context], value);
+        if(ns.constructor == Array) {
+            var context = ns[1] || undefined;
+            ns = ns[0];
+        }
+        
+        return DUI.Class.prototype.ns.apply(context ? context : window, [ns, value]);
+    },
+    
+    test: function(tests) {
+        tests = tests || {};
+        
+        //FUH -- Fireunit Helper
+        var FUH = new DUI.Class({
+            tests: {},
+
+            add: function(testClass)
+            {
+                var _this = this;
+
+                testClass.each(function(key) {
+                    _this.tests[key] = this;
+                });
+
+                return this;
+            },
+
+            run: function()
+            {
+                //Make rockets go now!
+                $.each(this.tests, function(key) {
+                    fireunit.log('FUH is about to run: ' + key);
+
+                    this();
+                });
+            }
+        });
+        
+        new FUH().add(new DUI.Class(tests,true)).run();
     }
 };
 
@@ -166,14 +208,19 @@ $.extend(DUI.Class.prototype, {
                 
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
                  * we overwrite each property instead of the whole namespace. */
-                $.each(payload, function(i) {
-                    //Special case! If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
-                    if(i == 'dontEnum' && this.constructor == Array) {
-                        extendee._dontEnum = $.merge(extendee._dontEnum, this);
+                $.each(payload, function(key, val) {
+                    /* Note: We're using val instead of this because if val is null,
+                     * jQuery.each will apply the iterator such that this == window instead of null */
+                     
+                    //If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
+                    if(key == 'dontEnum' && val.constructor == Array) {
+                        extendee._dontEnum = $.merge(extendee._dontEnum, val);
+                        
+                        return;
                     }
                     
                     //Add the current property to our class
-                    extendee[i] = this;
+                    extendee[key] = val;
                 });
             }
         });
@@ -193,42 +240,52 @@ $.extend(DUI.Class.prototype, {
      */
     ns: function()
     {
-        if(arguments.length == 0) return false;
+        if(arguments.length == 0) throw new Error('DUI.Class.ns should probably have some arguments passed to it.');
         
-        var arg = arguments[0], levels = null;
+        var arg = arguments[0];
+        var levels = null;
+        var get = (arguments.length == 1 || arguments[1] === undefined) && arg.constructor != Object ? true : false;
         
         if(arg.constructor == String) {
-            var passthrough = {};
-            passthrough[arg] = arguments[1] ? arguments[1] : null;
+            var dummy = {};
+            dummy[arg] = arguments[1] ? arguments[1] : undefined;
             
-            arg = passthrough;
+            arg = dummy;
         }
         
         if(arg.constructor == Object) {
-            var _class = this, last = this;
+            var _class = this, miss = false, last = this;
             
-            $.each(arg, function(nsName) {
+            $.each(arg, function(nsName, nsValue) {
                 //Reset nsobj back to the top each time
                 var nsobj = _class;
                 var levels = nsName.split('.');
                 
-                $.each(levels, function(i) {
-                    //When adding a namespace check to see if there's a value being passed in for it
-                    if(i == levels.length - 1 && arg[nsName]) {
-                        nsobj[this] = arg[nsName];
+                $.each(levels, function(i, level) {
+                    //First, are we using ns as a getter? Also, did our get attempt fail?
+                    if(get && typeof nsobj[level] == 'undefined') {
+                        //Dave's not here, man
+                        miss = true;
                         
-                    //...if not, check to see if the ns doesn't already exist in our class
-                    } else if(typeof nsobj[this] == 'undefined') {
+                        //Break out of each
+                        return false;
+                    }
+                    //Ok, so we're setting. Is it time to set yet or do we move on?
+                    else if(i == levels.length - 1 && nsValue) {
+                        nsobj[level] = nsValue;
+                    }
+                    //...nope, not yet. Check to see if the ns doesn't already exist in our class...
+                    else if(typeof nsobj[level] == 'undefined') {
                         //...and make it a new static class
-                        nsobj[this] = new DUI.Class(true);
+                        nsobj[level] = new DUI.Class(true);
                     }
                     
                     //Move one level deeper for the next iteration
-                    last = nsobj = nsobj[this];
+                    last = nsobj = nsobj[level];
                 });
             });
-            
-            return last;
+
+            return miss ? undefined : last;
         }
     },
     
@@ -246,6 +303,7 @@ $.extend(DUI.Class.prototype, {
         var _class = this;
         
         //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
+        //TODO: Fixed in 1.3.3, return this to its original state
         /* $.each(this, function(key) {
             if($.inArray(key, _class._dontEnum) != -1) return;
             
@@ -264,4 +322,3 @@ $.extend(DUI.Class.prototype, {
 DUI = new DUI.Class(DUI, true);
 
 })(jQuery);
-
