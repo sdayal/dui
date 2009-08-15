@@ -2,8 +2,11 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     var suite = new Y.Test.Suite({
         name: "DUI",
         
-        setUp: function() { 
+        setUp: function() {
             this.dyn = new DUI.Class({
+                init: function(arg) {
+                    this.quux = arg;
+                },
                 foo: 1,
                 bar: function(){},
                 baz: null
@@ -24,6 +27,11 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     
     suite.add(new Y.Test.Case({
         name: "Create Dynamic Class",
+        
+        testConstructor: function() {
+            var c = new suite.dyn(4);
+            Y.Assert.areSame(4, c.quux, "Constructor should set member 'quux' to 4");
+        },
         
         testNumericalMember: function() {
             Y.Assert.areSame(1, suite.dyn.prototype.foo, "Member 'foo' should be 1");
@@ -120,6 +128,12 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     suite.add(new Y.Test.Case({
         name: "DUI iterators",
         
+        _should: {
+            error: {
+                testEachError: new Error('DUI.Class.each must be called with a function as its first argument.')
+            }
+        },
+        
         setUp: function() {
             this.eachClass = new DUI.Class({
                 foo: 1,
@@ -148,6 +162,10 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
             });
             
             Y.Assert.areSame('foo1bar2baz3', result, "DUI each should call its arg on every iterable member of a class");
+        },
+        
+        testEachError: function() {
+            this.eachClass.each();
         },
         
         testDontEnum: function() {

@@ -79,38 +79,6 @@ DUI = {
         }
         
         return DUI.Class.prototype.ns.apply(context ? context : window, [ns, value]);
-    },
-    
-    test: function(tests) {
-        tests = tests || {};
-        
-        //FUH -- Fireunit Helper
-        var FUH = new DUI.Class({
-            tests: {},
-
-            add: function(testClass)
-            {
-                var _this = this;
-
-                testClass.each(function(key) {
-                    _this.tests[key] = this;
-                });
-
-                return this;
-            },
-
-            run: function()
-            {
-                //Make rockets go now!
-                $.each(this.tests, function(key) {
-                    fireunit.log('FUH is about to run: ' + key);
-
-                    this();
-                });
-            }
-        });
-        
-        new FUH().add(new DUI.Class(tests,true)).run();
     }
 };
 
@@ -149,7 +117,7 @@ $.extend(DUI.Class.prototype, {
             }
         }.apply(copy);
         
-        $.extend(copy.prototype, this.prototype);
+        $.extend(true, copy.prototype, this.prototype);
         return copy.prototype.create.apply(copy, arguments);
     },
     
