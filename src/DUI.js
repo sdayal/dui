@@ -49,10 +49,6 @@ DUI = {
     {
         type = type === undefined ? null : Boolean(type);
         
-        /* if(DUI.global('_ident.library', undefined, check)) {
-            
-        }; */
-        
         try {
             if(check._ident.library == 'DUI.Class') {
                 if(type === null
