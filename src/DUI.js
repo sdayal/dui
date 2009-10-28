@@ -70,10 +70,18 @@ DUI.load = function(module) {
 
 var d = document, add = d.addEventListener, att = d.attachEvent, boot = function(e) {
     e = e || window.event;
-    var t = e.target || e.srcElement;
+    var t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)boot-(\w+)(?:$|\s)/);
     
-    if(t.className.search(/(^|\s)boot($|\s)/) > -1) {
-        console.log('booting');
+    if(m && m[1]) {
+        m = m[1];
+        console.log('booting', m);
+        
+        DUI([m + '.js'], function() {
+            $('.boot-' + m).removeClass('.boot-' + m);
+            $(t).removeClass('booting').click();
+        });
+        
+        t.className = c.replace(/boot-(\w+)/, '') + ' booting';
     }
 };
 
