@@ -65,24 +65,31 @@ DUI.loaded = function(module) {
 
 var d = document, add = d.addEventListener, att = d.attachEvent, boot = function(e) {
     e = e || window.event;
-    var t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)boot-(\w+)(?:$|\s)/);
+    var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)boot-(hover-)?(\w+)(?:$|\s)/), h = '';
     
-    if(m && m[1]) {
-        m = m[1];
+    if(m && (m[1] || m[2])) {
+        if(m[1] == 'hover-' && y == 'mouseover' && m[2]) {
+            h = m[1];
+            m = m[2];
+        } else if(y == 'click') {
+            m = m[2];
+        } else return;
         
         DUI([m + '.js'], function() {
-            $('.boot-' + m).removeClass('boot-' + m);
-            $(t).removeClass('booting').click();
+            $('.boot-' + h + m + ', .boot-' + m).removeClass('boot-' + h + m + ' boot-' + m);
+            $(t).removeClass('booting')[y]();
         });
         
-        t.className = c.replace(/boot-(\w+)/, '') + ' booting';
+        t.className = c.replace(/boot-(hover-)?(\w+)/, '') + ' booting';
     }
 };
 
 if(att) {
     att('onclick', boot);
+    att('onmouseover', boot);
 } else {
     add('click', boot, false);
+    add('mouseover', boot, false);
 }
 
 })();
