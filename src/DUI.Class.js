@@ -257,6 +257,6 @@ $.extend(DUI.Class.prototype, {
     }
 });
 
-DUI = new DUI.Class(DUI, true);
+$.extend(DUI, DUI.Class.prototype);
 
 });

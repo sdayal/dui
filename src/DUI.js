@@ -17,7 +17,7 @@ DUI = function(deps, action) {
             if(matches[i] == match) unique = false;
         }
         
-        if(unique && "isClass|global|prototype|_dontEnum|_ident|_bootstrap|init|create|ns|each|".indexOf(match + '|') == -1) {
+        if(unique && "isClass|global|prototype|_dontEnum|_ident|_bootstrap|init|create|ns|each|".search(new RegExp("(^|\\|)" + match + "\\|")) == -1) {
             matches.push(match);
         }
     }
@@ -27,8 +27,6 @@ DUI = function(deps, action) {
     }
     
     if(DUI.loading.length == 0) {
-        console.log('premature actionation');
-        
         DUI.loaded();
     }
 }
@@ -36,20 +34,7 @@ DUI = function(deps, action) {
 DUI.loading = '';
 DUI.actions = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js';
-
-DUI.loaded = function(module) {
-    DUI.loading = DUI.loading.replace(module + '|', '');
-    
-    if(DUI.loading.length == 0) {
-        console.log('GO!');
-        
-        while(DUI.actions.length > 0) {
-            DUI.actions.pop().apply(DUI);
-        }
-    } else {
-        console.log('waiting for: ', DUI.loading);
-    }
-}
+DUI.moduleDir = 'src/';
 
 DUI.load = function(module) {
     if(typeof DUI[module] != 'undefined'
@@ -57,7 +42,7 @@ DUI.load = function(module) {
             return;
         }
     
-    var src = module.search(/\.js$/) > -1 ? module : 'src/DUI.' + module + '.js';
+    var src = module.search(/\.js$/) > -1 ? module : DUI.moduleDir + 'DUI.' + module + '.js';
     
     DUI.loading += module + '|';
     
@@ -68,16 +53,25 @@ DUI.load = function(module) {
     d.body.appendChild(jq);
 }
 
+DUI.loaded = function(module) {
+    DUI.loading = DUI.loading.replace(module + '|', '');
+    
+    if(DUI.loading.length == 0) {
+        while(DUI.actions.length > 0) {
+            DUI.actions.pop().apply(DUI);
+        }
+    }
+}
+
 var d = document, add = d.addEventListener, att = d.attachEvent, boot = function(e) {
     e = e || window.event;
     var t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)boot-(\w+)(?:$|\s)/);
     
     if(m && m[1]) {
         m = m[1];
-        console.log('booting', m);
         
         DUI([m + '.js'], function() {
-            $('.boot-' + m).removeClass('.boot-' + m);
+            $('.boot-' + m).removeClass('boot-' + m);
             $(t).removeClass('booting').click();
         });
         

@@ -1,3 +1,5 @@
+DUI(['http://yui.yahooapis.com/3.0.0b1/build/yui/yui-min.js'], function() {
+
 YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     var suite = new Y.Test.Suite({
         name: "DUI",
@@ -255,4 +257,6 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     
     Y.Test.Runner.add(suite);
     Y.Test.Runner.run();
+});
+
 });
