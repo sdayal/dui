@@ -3,10 +3,11 @@
 <head>
     <title>DUI NO DOY</title>
     
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
-    <script type="text/javascript" src="http://yui.yahooapis.com/3.0.0b1/build/yui/yui-min.js"></script>
-    <script type="text/javascript" src="coverage/DUI.js"></script>
-    <script type="text/javascript" src="DUITests.js"></script>
+    <!-- <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+    <script type="text/javascript" src="http://yui.yahooapis.com/3.0.0b1/build/yui/yui-min.js"></script> -->
+    <script type="text/javascript" src="src/DUI.js"></script>
+    <!-- <script type="text/javascript" src="src/DUI.Class.js"></script>
+    <script type="text/javascript" src="DUITests.js"></script> -->
     
     <style type="text/css">
         .yui-console-entry-fail {
@@ -16,7 +17,38 @@
 </head>
 
 <body class="yui-skin-sam">
+    <h1 class="boot">BOOT ME</h1>
     
+    <h1 class="gumboot">NO NEVER</h1>
+    
+    <h1 class="lol boot whee">YES BOOT NOW</h1>
+    
+    <h1 class="lol booties whuuut hay">NO MAKE</h1>
+    
+    <h1 class="bootcapades">DEATH AND SORROW</h1>
+    
+    <script type="text/javascript">
+    DUI(function() {
+        console.log('funcing', this == DUI);
+        
+        console.log(typeof DUI.Heartbeat);
+        
+        //var foo = new DUI.Class(), blah = new DUI.Class({ lol: 'hhahaaa' }); //main case
+        
+        //var bar = DUI['somethin'].whee(); //rare, do we need to worry about this?
+        
+        fonk = new DUI.Class({
+            init: function() {
+                console.log('lol');
+            }
+        });
+        
+        
+        new fonk();
+        
+        //DUI.nuts = {}; //don't need to load this, as it's being set inline
+    });
+    </script>
 </body>
 
 </html>
