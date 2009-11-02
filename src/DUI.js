@@ -35,6 +35,7 @@ DUI.loading = '';
 DUI.actions = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js';
 DUI.moduleDir = 'src/';
+DUI.scriptDir = '';
 
 DUI.load = function(module) {
     if(typeof DUI[module] != 'undefined'
@@ -42,7 +43,8 @@ DUI.load = function(module) {
             return;
         }
     
-    var src = module.search(/\.js$/) > -1 ? module : DUI.moduleDir + 'DUI.' + module + '.js';
+        var src = module.search(/\.js$/) > -1 ? module :
+            (module.indexOf('/') > -1 ? DUI.scriptDir + module + '.js' : DUI.moduleDir + 'DUI.' + module + '.js');
     
     DUI.loading += module + '|';
     
@@ -63,33 +65,38 @@ DUI.loaded = function(module) {
     }
 }
 
-var d = document, add = d.addEventListener, att = d.attachEvent, boot = function(e) {
+var d = document, add = 'addEventListener', att = 'attachEvent', boot = function(e) {
     e = e || window.event;
-    var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)boot-(hover-)?(\w+)(?:$|\s)/), h = '';
+    var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)_(click|hover):(\S+)(?:$|\s)/), h = '';
     
-    if(m && (m[1] || m[2])) {
-        if(m[1] == 'hover-' && y == 'mouseover' && m[2]) {
-            h = m[1];
-            m = m[2];
-        } else if(y == 'click') {
-            m = m[2];
+    if(m && m[1] && m[2]) {
+        //IE is probably going to report these event names in a shitty way
+        if((m[1] == 'hover' && y == 'mouseover')
+            || (m[1] == 'click' && y == 'click')) {
+            
+            if(m[2].search(/\.js$/) > -1) {
+                m = m[2];
+            } else {
+                m = m[2].replace(':', '/')
+            }
         } else return;
         
-        DUI([m + '.js'], function() {
-            $('.boot-' + h + m + ', .boot-' + m).removeClass('boot-' + h + m + ' boot-' + m);
+        var s1 = m.replace('/', '\\:'), s2 = m.replace('/', ':');;
+        DUI([m], function() {
+            $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + s2 + ' _hover:' + s2);
             $(t).removeClass('booting')[y]();
         });
         
-        t.className = c.replace(/boot-(hover-)?(\w+)/, '') + ' booting';
+        t.className = c.replace(/_(click|hover):(\S+)/, '') + ' booting';
     }
 };
 
-if(att) {
-    att('onclick', boot);
-    att('onmouseover', boot);
+if(d[att]) {
+    d[att]('onclick', boot);
+    d[att]('onmouseover', boot);
 } else {
-    add('click', boot, false);
-    add('mouseover', boot, false);
+    d[add]('click', boot, false);
+    d[add]('mouseover', boot, false);
 }
 
 })();
