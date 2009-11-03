@@ -44,7 +44,9 @@ DUI.load = function(module) {
         }
     
         var src = module.search(/\.js$/) > -1 ? module :
-            (module.indexOf('/') > -1 ? DUI.scriptDir + module + '.js' : DUI.moduleDir + 'DUI.' + module + '.js');
+            (module.indexOf('/') > -1 ? DUI.scriptDir + module + '.js' :
+            (module.indexOf(':') > -1 ? DUI.scriptDir + module.replace(':', '/') + '.js' :
+            DUI.moduleDir + 'DUI.' + module + '.js'));
     
     DUI.loading += module + '|';
     
@@ -74,29 +76,56 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         if((m[1] == 'hover' && y == 'mouseover')
             || (m[1] == 'click' && y == 'click')) {
             
-            if(m[2].search(/\.js$/) > -1) {
-                m = m[2];
-            } else {
-                m = m[2].replace(':', '/')
-            }
+            m = m[2];
         } else return;
         
-        var s1 = m.replace('/', '\\:'), s2 = m.replace('/', ':');;
+        var s1 = m.replace(':', '\\:');
         DUI([m], function() {
-            $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + s2 + ' _hover:' + s2);
+            $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + m + ' _hover:' + m);
             $(t).removeClass('booting')[y]();
         });
         
         t.className = c.replace(/_(click|hover):(\S+)/, '') + ' booting';
+        
+        e.preventDefault();
     }
 };
+
+var onload = function() {
+    var html = 'class="' + document.body.className + '" ' + document.body.innerHTML, re = /class=(?:'|")(?:[^'"]*?)_load:([^\s"']+)(?:[^'"]*?)(?:'|")/gim, matches = [], match;
+    
+    while(match = re.exec(html)) {
+        var unique = true;
+        match = match[1] || null;
+        
+        for(var i = 0; i < matches.length; i++) {
+            if(matches[i] == match) unique = false;
+        }
+        
+        if(unique) matches.push(match);
+    }
+    
+    DUI(matches, function() {
+        $('[class*=_load\\:]').each(function() {
+            var el = $(this), class = $.map(el.attr('class').split(' '), function(val) {
+                if(val.indexOf('_load:') > -1) val = null;
+                
+                return val;
+            }).join(' ');
+            
+            el.attr('class', class);
+        });
+    });
+}
 
 if(d[att]) {
     d[att]('onclick', boot);
     d[att]('onmouseover', boot);
+    window[att]('onload', onload);
 } else {
     d[add]('click', boot, false);
     d[add]('mouseover', boot, false);
+    window[add]('load', onload, false);
 }
 
 })();
