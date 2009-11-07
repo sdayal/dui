@@ -8,7 +8,7 @@ DUI = function(deps, action) {
     DUI.actions.push(action);
     
     if(deps && deps.constructor == Array) matches = deps;
-    if(typeof jQuery == 'undefined') matches.push(DUI.jQueryURL);
+    if(typeof jQuery == 'undefined') matches.push(DUI.jQueryURL) && matches.push(DUI.moduleDir + 'jquery.resumeDefault');
     
     while(match = re.exec(str)) {
         var unique = true; match = match[1] || null;
@@ -33,7 +33,7 @@ DUI = function(deps, action) {
 
 DUI.loading = '';
 DUI.actions = [];
-DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js';
+DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
 DUI.moduleDir = 'src/';
 DUI.scriptDir = '';
 
@@ -69,6 +69,9 @@ DUI.loaded = function(module) {
 
 var d = document, add = 'addEventListener', att = 'attachEvent', boot = function(e) {
     e = e || window.event;
+    
+    if(e.button == 2 || e.ctrlKey || e.metaKey) return;
+    
     var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)_(click|hover):(\S+)(?:$|\s)/), h = '';
     
     if(m && m[1] && m[2]) {
@@ -82,7 +85,11 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         var s1 = m.replace(':', '\\:');
         DUI([m], function() {
             $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + m + ' _hover:' + m);
-            $(t).removeClass('booting')[y]();
+            
+            //This is another place that IE's shitty event names will break
+            var evt = new $.Event(y);
+            evt.fromDUI = true;
+            $(t).removeClass('booting').trigger(evt);
         });
         
         t.className = c.replace(/_(click|hover):(\S+)/, '') + ' booting';
