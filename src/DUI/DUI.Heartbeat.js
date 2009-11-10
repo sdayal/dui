@@ -1,4 +1,4 @@
-DUI(['Class'], function() {
+DUI(function() {
     DUI.ns('Heartbeat', new DUI.Class({
         init: function(delay, callback) {
             this.interval = setInterval(callback, delay);

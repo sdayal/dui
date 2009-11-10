@@ -1,4 +1,6 @@
 DUI(function() {
+    var foo = DUI.Heartbeat;
+    
     $('.whee').click(function(e) {
         console.log('SHIT JUST GOT REAL.');
     });

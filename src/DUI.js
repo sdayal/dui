@@ -3,23 +3,25 @@
 DUI = function(deps, action) {
     if(arguments.length == 1) action = deps;
     action = action && action.constructor == Function ? action : function(){};
-    var str = action.toString(), re = /DUI\.(\w+)/gim, matches = [], match;
+    var str = action.toString(), re = /(DUI\.\w+)/gim, matches = [], match;
     
     DUI.actions.push(action);
     
     if(deps && deps.constructor == Array) matches = deps;
-    if(typeof jQuery == 'undefined') matches.push(DUI.jQueryURL) && matches.push(DUI.moduleDir + 'jquery.resumeDefault');
+    if(typeof jQuery == 'undefined') matches.push(DUI.jQueryURL) && matches.push(DUI.scriptURL + 'DUI/jquery.resumeDefault.js');
     
     while(match = re.exec(str)) {
         var unique = true; match = match[1] || null;
+        
+        if("isClass|global|prototype|_dontEnum|_ident|_bootstrap|init|create|ns|each|".search(new RegExp("(^|\\|)" + match.replace('DUI.', '') + "\\|")) > -1) {
+            match = 'DUI.Class';
+        }
         
         for(var i = 0; i < matches.length; i++) {
             if(matches[i] == match) unique = false;
         }
         
-        if(unique && "isClass|global|prototype|_dontEnum|_ident|_bootstrap|init|create|ns|each|".search(new RegExp("(^|\\|)" + match + "\\|")) == -1) {
-            matches.push(match);
-        }
+        if(unique) matches.push(match);
     }
     
     for(var i = 0; i < matches.length; i++) {
@@ -34,19 +36,28 @@ DUI = function(deps, action) {
 DUI.loading = '';
 DUI.actions = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
-DUI.moduleDir = 'src/';
-DUI.scriptDir = '';
+DUI.scriptURL = 'http://dev.loc/~micah/DUI/src/';
+/* DUI.moduleDir = 'src/';
+DUI.scriptDir = ''; */
 
 DUI.load = function(module) {
     if(typeof DUI[module] != 'undefined'
         || DUI.loading.indexOf(module + '|') > -1) {
             return;
         }
-    
-        var src = module.search(/\.js$/) > -1 ? module :
+        
+        //^http - url, leave intact
+        //DUI. - scriptDir/lib/(match).js
+        //else - scriptDir/(match.replace(':', '/')).js
+        
+        var src = module.indexOf('http') == 0 ? module :
+            (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module + '.js' :
+            DUI.scriptURL + module.replace(/:/g, '/') + '.js');
+        
+        /* var src = module.search(/\.js$/) > -1 ? module :
             (module.indexOf('/') > -1 ? DUI.scriptDir + module + '.js' :
             (module.indexOf(':') > -1 ? DUI.scriptDir + module.replace(':', '/') + '.js' :
-            DUI.moduleDir + 'DUI.' + module + '.js'));
+            DUI.moduleDir + 'DUI.' + module + '.js')); */
     
     DUI.loading += module + '|';
     
@@ -82,7 +93,7 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
             m = m[2];
         } else return;
         
-        var s1 = m.replace(':', '\\:');
+        var s1 = m.replace(/([:\.]{1})/g, '\\$1');
         DUI([m], function() {
             $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + m + ' _hover:' + m);
             
