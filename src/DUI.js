@@ -36,9 +36,7 @@ DUI = function(deps, action) {
 DUI.loading = '';
 DUI.actions = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
-DUI.scriptURL = 'http://dev.loc/~micah/DUI/src/';
-/* DUI.moduleDir = 'src/';
-DUI.scriptDir = ''; */
+DUI.scriptURL = 'http://' + window.location.hostname + '/~micah/DUI/src/';
 
 DUI.load = function(module) {
     if(typeof DUI[module] != 'undefined'
@@ -64,7 +62,13 @@ DUI.load = function(module) {
     var d = document, jq = d.createElement('script'), a = 'setAttribute';
     jq[a]('type', 'text/javascript');
     jq[a]('src', src);
-    jq[a]('onload', 'DUI.loaded("' + module + '")');
+    //jq[a]('onload', 'DUI.loaded("' + module + '")');
+    jq.onload = function() { DUI.loaded(module); };
+    jq.onreadystatechange = function() {
+        if('loadedcomplete'.indexOf(jq.readyState) > -1) {
+            DUI.loaded(module);
+        }
+    }
     d.body.appendChild(jq);
 }
 
@@ -86,7 +90,6 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
     var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)_(click|hover):(\S+)(?:$|\s)/), h = '';
     
     if(m && m[1] && m[2]) {
-        //IE is probably going to report these event names in a shitty way
         if((m[1] == 'hover' && y == 'mouseover')
             || (m[1] == 'click' && y == 'click')) {
             
@@ -97,7 +100,6 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         DUI([m], function() {
             $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + m + ' _hover:' + m);
             
-            //This is another place that IE's shitty event names will break
             var evt = new $.Event(y);
             evt.fromDUI = true;
             $(t).removeClass('booting').trigger(evt);
@@ -105,7 +107,7 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         
         t.className = c.replace(/_(click|hover):(\S+)/, '') + ' booting';
         
-        e.preventDefault();
+        e.preventDefault ? e.preventDefault() : e.returnValue = false;
     }
 };
 
@@ -125,13 +127,13 @@ var onload = function() {
     
     DUI(matches, function() {
         $('[class*=_load\\:]').each(function() {
-            var el = $(this), class = $.map(el.attr('class').split(' '), function(val) {
+            var el = $(this), cl = $.map(el.attr('class').split(' '), function(val) {
                 if(val.indexOf('_load:') > -1) val = null;
                 
                 return val;
             }).join(' ');
             
-            el.attr('class', class);
+            el.attr('class', cl);
         });
     });
 }

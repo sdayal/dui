@@ -140,7 +140,7 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
             this.eachClass = new DUI.Class({
                 foo: 1,
                 bar: 2,
-                baz: 3,
+                baz: 3
             }, true);
             
             this.dontEnumClass = new DUI.Class({
@@ -252,7 +252,7 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
     }));
     
     var console = new Y.Console({
-        newestOnTop: false,
+        newestOnTop: false
     }).render();
     
     Y.Test.Runner.add(suite);
