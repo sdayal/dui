@@ -98,7 +98,7 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         
         var s1 = m.replace(/([:\.]{1})/g, '\\$1');
         DUI([m], function() {
-            $('._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_click:' + m + ' _hover:' + m);
+            $('._click\\:' + s1 + ', ._hover\\:' + s1 + ', ._view\\:' + s1).removeClass('_click:' + m + ' _hover:' + m + ' _view:' + m);
             
             var evt = new $.Event(y);
             evt.fromDUI = true;
@@ -138,13 +138,47 @@ var onload = function() {
     });
 }
 
+var onscroll = function() {
+    var height = window.innerHeight, scroll = window.scrollY, re = /class=(?:'|")(?:[^'"]*?)_view:([^\s"']+)(?:[^'"]*?)(?:'|")/gim, matches = [], el;
+    
+    if(document.querySelectorAll) {
+        qsa = document.querySelectorAll('*[class*=_view]');
+        
+        for(var i = 0; i < qsa.length; i++) {
+            el = qsa[i];
+            
+            if(height + scroll > el.offsetTop) {
+                matches.push(/(?:^|\s)_view:([^\s]+)(?:\s|$)/.exec(el.className)[1]);
+            }
+        }
+        
+        
+    } else {
+        console.log('no');
+    }
+    
+    if(matches.length > 0) {
+        el.className = el.className.replace(/_view:(\S+)/, '') + ' booting';
+        
+        DUI(matches, function() {
+            $(el).removeClass('booting');
+            $.each(matches, function() {
+                var s1 = this.replace(/([:\.]{1})/g, '\\$1');
+                $('._view\\:' + s1 + ', ._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_view:' + this + ' _click:' + this + ' _hover:' + this);
+            });
+        });
+    }
+}
+
 if(d[att]) {
     d[att]('onclick', boot);
     d[att]('onmouseover', boot);
+    d[att]('onscroll', onscroll);
     window[att]('onload', onload);
 } else {
     d[add]('click', boot, false);
     d[add]('mouseover', boot, false);
+    d[add]('scroll', onscroll, false);
     window[add]('load', onload, false);
 }
 
