@@ -39,7 +39,17 @@
 
 (function() {
 
-DUI = function(deps, action) {
+//add Array.indexOf to a certain shitty browser we support
+[].indexOf || (Array.prototype.indexOf = function(v,n){
+    n = (n==null)?0:n; var m = this.length;
+    for(var i = n; i < m; i++) {
+        if(this[i] == v) return i;
+    }
+    
+    return -1;
+});
+
+DUI = function(deps, action, data) {
     if(arguments.length == 1) action = deps;
     action = action && action.constructor == Function ? action : function(){};
     var str = action.toString(), re = /(DUI\.\w+)/gim, matches = [], match;
@@ -47,15 +57,18 @@ DUI = function(deps, action) {
     DUI.actions.push(action);
     
     if(deps && deps.constructor == Array) matches = deps;
-    if(typeof jQuery == 'undefined') matches.push(DUI.jQueryURL) && matches.push(DUI.scriptURL + 'DUI/jquery.resumeDefault.js');
+    if(typeof jQuery == 'undefined') matches.push(DUI.scriptURL + 'DUI/jquery.resumeDefault.js') && matches.push(DUI.jQueryURL) && matches.reverse();
     
     while(match = re.exec(str)) {
         var unique = true; match = match[1] || null;
         
-        if("isClass|global|prototype|_dontEnum|_ident|_bootstrap|init|create|ns|each|".search(new RegExp("(^|\\|)" + match.replace('DUI.', '') + "\\|")) > -1) {
+        var internals = ['isClass','global','prototype','_dontEnum','_ident','_bootstrap','init','create','ns','each'];
+        
+        if(internals.indexOf(match.replace('DUI.', '')) > -1) {
             match = 'DUI.Class';
         }
         
+        //replace this with Array.indexOf
         for(var i = 0; i < matches.length; i++) {
             if(matches[i] == match) unique = false;
         }
@@ -64,7 +77,7 @@ DUI = function(deps, action) {
     }
     
     for(var i = 0; i < matches.length; i++) {
-        DUI.load(matches[i]);
+        DUI.load(matches[i], data);
     }
     
     if(DUI.loading.length == 0) {
@@ -74,45 +87,70 @@ DUI = function(deps, action) {
 
 DUI.loading = '';
 DUI.actions = [];
+DUI.loadedScripts = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
 DUI.scriptURL = 'http://' + window.location.hostname + '/~micah/DUI/src/';
 
-DUI.load = function(module) {
-    if(typeof DUI[module] != 'undefined'
-        || DUI.loading.indexOf(module + '|') > -1) {
-            return;
-        }
-        
-        //^http - url, leave intact
-        //DUI. - scriptDir/lib/(match).js
-        //else - scriptDir/(match.replace(':', '/')).js
-        
-        var src = module.indexOf('http') == 0 ? module :
-            (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module + '.js' :
-            DUI.scriptURL + module.replace(/:/g, '/') + '.js');
-        
-        /* var src = module.search(/\.js$/) > -1 ? module :
-            (module.indexOf('/') > -1 ? DUI.scriptDir + module + '.js' :
-            (module.indexOf(':') > -1 ? DUI.scriptDir + module.replace(':', '/') + '.js' :
-            DUI.moduleDir + 'DUI.' + module + '.js')); */
+DUI.load = function(module, data) {
+    if(DUI.loading.indexOf(module + '|') > -1) return;
+    
+    if(DUI.loadedScripts.indexOf(module) > -1) {
+        DUI.loaded(module, data);
+        return;
+    }
+    
+    //^http - url, leave intact
+    //DUI. - scriptDir/lib/(match).js
+    //else - scriptDir/(match.replace(':', '/')).js
+    
+    var src = module.indexOf('http') == 0 ? module :
+        (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module + '.js' :
+        DUI.scriptURL + module.replace(/:/g, '/') + '.js');
     
     DUI.loading += module + '|';
     
     var d = document, jq = d.createElement('script'), a = 'setAttribute';
     jq[a]('type', 'text/javascript');
     jq[a]('src', src);
-    //jq[a]('onload', 'DUI.loaded("' + module + '")');
-    jq.onload = function() { DUI.loaded(module); };
+    jq.onload = function() { DUI.loaded(module, data); };
     jq.onreadystatechange = function() {
         if('loadedcomplete'.indexOf(jq.readyState) > -1) {
-            DUI.loaded(module);
+            DUI.loaded(module, data);
         }
     }
     d.body.appendChild(jq);
 }
 
-DUI.loaded = function(module) {
+DUI.loaded = function(module, data) {
     DUI.loading = DUI.loading.replace(module + '|', '');
+    if(module) DUI.loadedScripts.push(module);
+    
+    if(data && module) {
+        console.log(data, module);
+        
+        var safe = module.replace(/([:\.]{1})/g, '\\$1');
+        var event = data.event;
+        var el = data.target ? $(data.target) : null;
+        
+        if(el) {
+            //WHAT THE FUCK. IT WON'T REMOVE THE FUCKING CLASS
+            console.log('debooting', el.attr('class'));
+            el.removeClass('booting');
+        } else {
+            console.log('no booting');
+        }
+        
+        $('._view\\:' + safe + ', ._click\\:' + safe + ', ._hover\\:' + safe + ', ._load\\:' + safe)
+                .removeClass('_view:' + module + ' _click:' + module + ' _hover:' + module + ' _load:' + module);
+        
+        if(['click', 'mouseover'].indexOf(event) > -1) {
+            var evt = new $.Event(event);
+            evt.fromDUI = true;
+            el.trigger(evt);
+        }
+    }
+    
+    
     
     if(DUI.loading.length == 0) {
         while(DUI.actions.length > 0) {
@@ -135,16 +173,12 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
             m = m[2];
         } else return;
         
-        var s1 = m.replace(/([:\.]{1})/g, '\\$1');
-        DUI([m], function() {
-            $('._click\\:' + s1 + ', ._hover\\:' + s1 + ', ._view\\:' + s1).removeClass('_click:' + m + ' _hover:' + m + ' _view:' + m);
-            
-            var evt = new $.Event(y);
-            evt.fromDUI = true;
-            $(t).removeClass('booting').trigger(evt);
-        });
+        t.className = c + ' booting';
         
-        t.className = c.replace(/_(click|hover):(\S+)/, '') + ' booting';
+        DUI([m], null, {
+            event: y,
+            target: t
+        });
         
         e.preventDefault ? e.preventDefault() : e.returnValue = false;
     }
@@ -164,20 +198,14 @@ var onload = function() {
         if(unique) matches.push(match);
     }
     
-    DUI(matches, function() {
-        $('[class*=_load\\:]').each(function() {
-            var el = $(this), cl = $.map(el.attr('class').split(' '), function(val) {
-                if(val.indexOf('_load:') > -1) val = null;
-                
-                return val;
-            }).join(' ');
-            
-            el.attr('class', cl);
-        });
+    DUI(matches, null, {
+        event: 'load'
     });
 }
 
 var onscroll = function() {
+    //todo: cross-browser math
+    //todo: roll regexes throughout the file into one common object
     var height = window.innerHeight, scroll = window.scrollY, re = /class=(?:'|")(?:[^'"]*?)_view:([^\s"']+)(?:[^'"]*?)(?:'|")/gim, matches = [], el;
     
     if(document.querySelectorAll) {
@@ -197,14 +225,11 @@ var onscroll = function() {
     }
     
     if(matches.length > 0) {
-        el.className = el.className.replace(/_view:(\S+)/, '') + ' booting';
+        el.className = el.className + ' booting';
         
-        DUI(matches, function() {
-            $(el).removeClass('booting');
-            $.each(matches, function() {
-                var s1 = this.replace(/([:\.]{1})/g, '\\$1');
-                $('._view\\:' + s1 + ', ._click\\:' + s1 + ', ._hover\\:' + s1).removeClass('_view:' + this + ' _click:' + this + ' _hover:' + this);
-            });
+        DUI(matches, null, {
+            event: 'scroll',
+            target: el
         });
     }
 }
