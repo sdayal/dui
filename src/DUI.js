@@ -1,42 +1,3 @@
-/**
- * DUI: The Digg User Interface Library
- *
- * Copyright (c) 2008-2009, Digg, Inc.
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the following conditions are met:
- *
- * - Redistributions of source code must retain the above copyright notice, 
- *   this list of conditions and the following disclaimer.
- * - Redistributions in binary form must reproduce the above copyright notice, 
- *   this list of conditions and the following disclaimer in the documentation 
- *   and/or other materials provided with the distribution.
- * - Neither the name of the Digg, Inc. nor the names of its contributors 
- *   may be used to endorse or promote products derived from this software 
- *   without specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @module DUI
- * @author Micah Snyder <micah@digg.com>
- * @description The Digg User Interface Library
- * @version 1.1.0a
- * @link http://github.com/digg/dui
- *
- */
-
-
 (function() {
 
 //add Array.indexOf to a certain shitty browser we support
@@ -89,7 +50,8 @@ DUI.loading = '';
 DUI.actions = [];
 DUI.loadedScripts = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
-DUI.scriptURL = 'http://' + window.location.hostname + '/~micah/DUI/src/';
+DUI.scriptURL = 'http://' + window.location.hostname + '/';
+DUI.maps = {};
 
 DUI.load = function(module, data) {
     if(DUI.loading.indexOf(module + '|') > -1) return;
@@ -100,22 +62,32 @@ DUI.load = function(module, data) {
     }
     
     //^http - url, leave intact
-    //DUI. - scriptDir/lib/(match).js
+    //DUI. - scriptDir/DUI/(match).js
     //else - scriptDir/(match.replace(':', '/')).js
+    
+    //split on :, look for _foo, check if DUI.maps._foo, replace _foo with mapped value, join(':')
+    var loadStr = module, parts = module.split(/:(?!\/\/)/);
+    for(var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        if(part.indexOf('_') == 0 && DUI.maps[part]) {
+            parts[i] = DUI.maps[part];
+        }
+    }
+    module = parts.join('/');
     
     var src = module.indexOf('http') == 0 ? module :
         (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module + '.js' :
-        DUI.scriptURL + module.replace(/:/g, '/') + '.js');
+        DUI.scriptURL + module + '.js');
     
-    DUI.loading += module + '|';
+    DUI.loading += loadStr + '|';
     
     var d = document, jq = d.createElement('script'), a = 'setAttribute';
     jq[a]('type', 'text/javascript');
     jq[a]('src', src);
-    jq.onload = function() { DUI.loaded(module, data); };
+    jq.onload = function() { DUI.loaded(loadStr, data); };
     jq.onreadystatechange = function() {
         if('loadedcomplete'.indexOf(jq.readyState) > -1) {
-            DUI.loaded(module, data);
+            DUI.loaded(loadStr, data);
         }
     }
     d.body.appendChild(jq);
@@ -126,28 +98,20 @@ DUI.loaded = function(module, data) {
     if(module) DUI.loadedScripts.push(module);
     
     if(data && module) {
-        console.log(data, module);
-        
         var safe = module.replace(/([:\.]{1})/g, '\\$1');
         var event = data.event;
         var el = data.target ? $(data.target) : null;
         
-        if(el) {
-            //WHAT THE FUCK. IT WON'T REMOVE THE FUCKING CLASS
-            console.log('debooting', el.attr('class'));
-            el.removeClass('booting');
-        } else {
-            console.log('no booting');
-        }
+        if(el) el.removeClass('booting');
         
         $('._view\\:' + safe + ', ._click\\:' + safe + ', ._hover\\:' + safe + ', ._load\\:' + safe)
                 .removeClass('_view:' + module + ' _click:' + module + ' _hover:' + module + ' _load:' + module);
         
-        if(['click', 'mouseover'].indexOf(event) > -1) {
+        /* if(['click', 'mouseover'].indexOf(event) > -1) {
             var evt = new $.Event(event);
             evt.fromDUI = true;
             el.trigger(evt);
-        }
+        } */
     }
     
     
@@ -175,7 +139,11 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
         
         t.className = c + ' booting';
         
-        DUI([m], null, {
+        DUI([m], function() {
+            var evt = new $.Event(y);
+            evt.fromDUI = true;
+            $(t).trigger(evt);
+        }, {
             event: y,
             target: t
         });
