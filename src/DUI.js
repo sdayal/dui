@@ -74,16 +74,6 @@ DUI.scriptURL = 'http://' + window.location.hostname + '/';
 DUI.maps = {};
 DUI.debug = false;
 
-//I can't believe I still have to do this. Dear IE, Kindly die in a shit fire.
-/* DUI.indexOf = [].indexOf || function(obj, v, n){
-    n = (n == null) ? 0 : n; var m = obj.length;
-    for(var i = n; i < m; i++) {
-        if(obj[i] == v) return i;
-    }
-
-    return -1;
-}; */
-
 DUI.load = function(module, opts) {
     if(DUI.loading.indexOf(module) > -1) return;
 
