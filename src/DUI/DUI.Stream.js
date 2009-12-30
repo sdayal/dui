@@ -42,7 +42,9 @@ DUI(function() { DUI.ns('Stream', new DUI.Class({
     streams: [],
     listeners: {},
     
-    init: function() {},
+    init: function(url) {
+        this.load(url);
+    },
     
     load: function(url) {
         //These versions of XHR are known to work with MXHR
@@ -95,12 +97,7 @@ DUI(function() { DUI.ns('Stream', new DUI.Class({
             //One last ping to clean up
             this.ping();
             
-            if(typeof this.listeners.complete != 'undefined') {
-                var _this = this;
-                $.each(this.listeners.complete, function() {
-                    this.apply(_this);
-                });
-            }
+            $(document).trigger('mxhr:complete');
         }
     },
     
@@ -207,7 +204,6 @@ DUI(function() { DUI.ns('Stream', new DUI.Class({
            so if the payload starts on the line after the boundary, we'll intentionally ditch that line
            because it doesn't conform to the spec. QQ more noob, L2play, etc. */
         var mimeAndPayload = this.currentStream.split("\n");
-        //var mime = mimeAndPayload.shift().split('Content-Type:', 2)[1].split(";", 1)[0].replace(' ', '');
         
         //Handle multiple headers per payload
         var headers = {};
@@ -221,20 +217,17 @@ DUI(function() { DUI.ns('Stream', new DUI.Class({
         var mime = headers['Content-Type'] ? headers['Content-Type'] : null;
         
         //Let's make things a bit easier here
-        var selector = headers['X-MXHR-Selector'] ? headers['X-MXHR-Selector'] : undefined;
+        var selector = headers['X-MXHR-Selector'] ? headers['X-MXHR-Selector'] : document;
         
         //Get payload
         var payload = mimeAndPayload.join("\n");
         
-        //Try to fire the listeners for this mimetype
-        var _this = this;
-        if(typeof this.listeners[mime] != 'undefined') {
-            $.each(this.listeners[mime], function() {
-                this.apply(_this, [payload, headers, selector]);
-            });
-        }
+        $(selector).trigger('mxhr:part', [{
+            headers: headers,
+            selector: selector,
+            body: payload
+        }]);
         
-        //Set this.currentStream = null
         delete this.currentStream;
     },
     
