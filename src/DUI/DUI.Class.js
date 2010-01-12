@@ -38,7 +38,7 @@
 
 DUI(function() {
 
-$.extend(DUI, {
+$.extend(true, DUI, {
     /**
      * @function isClass Check so see if the first argument passed in is a DUI Class
      * @param {mixed} check Object to check for classiness.
@@ -85,7 +85,7 @@ DUI.Class = function()
     return this.constructor.prototype._bootstrap.apply(this.constructor, arguments);
 }
 
-$.extend(DUI.Class.prototype, {
+$.extend(true, DUI.Class.prototype, {
     /**
      * @var {Array} _dontEnum Internal array of keys to omit when looking through a class' properties. Once the real DontEnum bit is writable we won't have to deal with this.
      */
@@ -172,7 +172,7 @@ $.extend(DUI.Class.prototype, {
                 //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
                 //TODO: Fixed in 1.3.3, return this to its original state
                 //to pass DUI in while bootstrapping, we need to be able to loop over a function
-                for(var key in payload) {
+                /* for(var key in payload) {
                     var val = payload[key];
                     
                     if(key == 'dontEnum' && val.constructor == Array) {
@@ -180,24 +180,41 @@ $.extend(DUI.Class.prototype, {
                     } else {
                         extendee[key] = val;
                     }
-                }
+                } */
                 
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
                  * we overwrite each property instead of the whole namespace. */
-                //$.each(payload, function(key, val) {
+                $.each(payload, function(key, val) {
                     /* Note: We're using val instead of this because if val is null,
                      * jQuery.each will apply the iterator such that this == window instead of null */
-                     
+
                     //If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
-                    /* if(key == 'dontEnum' && val.constructor == Array) {
+                    if(key == 'dontEnum' && val.constructor == Array) {
                         extendee._dontEnum = $.merge(extendee._dontEnum, val);
-                        
+
                         return;
-                    } */
-                    
+                    }
+
                     //Add the current property to our class
                     //extendee[key] = val;
-                //});
+                    var copy = {}, valCopy;
+                    
+                    if(val && val.constructor == Object) {
+                        //console.log('Copying object:', key);
+                        
+                        valCopy = {};
+                        
+                        $.extend(true, valCopy, val);
+                    } else {
+                        valCopy = val;
+                    }
+                    
+                    copy[key] = valCopy;
+                    
+                    $.extend(true, extendee, copy);
+                    
+                    //console.log(extendee[key] === val);
+                });
             }
         });
         
@@ -248,7 +265,11 @@ $.extend(DUI.Class.prototype, {
                     }
                     //Ok, so we're setting. Is it time to set yet or do we move on?
                     else if(i == levels.length - 1 && nsValue) {
-                        nsobj[level] = nsValue;
+                        //nsobj[level] = nsValue;
+                        var copy = {};
+                        copy[level] = nsValue;
+                        
+                        $.extend(true, nsobj, copy);
                     }
                     //...nope, not yet. Check to see if the ns doesn't already exist in our class...
                     else if(typeof nsobj[level] == 'undefined') {
@@ -295,6 +316,6 @@ $.extend(DUI.Class.prototype, {
     }
 });
 
-$.extend(DUI, DUI.Class.prototype);
+$.extend(true, DUI, DUI.Class.prototype);
 
 });

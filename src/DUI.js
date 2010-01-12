@@ -62,8 +62,15 @@
 
 
 DUI = function(deps, action, opts) {
-    if(arguments.length == 1) action = deps;
+    //Let's settle out which signature is being used, shall we?
+    if(arguments.length == 1) {
+        action = deps;
+    } else if(arguments.length == 2 && deps.constructor == Function) {
+        opts = action;
+        action = deps;
+    }
     action = action && action.constructor == Function ? action : function(){};
+    opts = opts || {};
 
     var str = action.toString(), re = /(DUI\.\w+)/gim, matches = [], match;
 
@@ -89,10 +96,14 @@ DUI = function(deps, action, opts) {
             if(matches[i] == match) unique = false;
         }
 
-        if(unique && omit.indexOf(match.replace('DUI.', '')) == -1) matches.push(match);
+        if(unique && omit.indexOf(match.replace('DUI.', '')) == -1) matches.push(match + '.js');
     }
 
-    DUI.currentQ.push(action);
+    if(opts.defer) {
+        DUI.deferred.push(action);
+    } else {
+        DUI.currentQ.push(action);
+    }
 
     for(var i = 0; i < matches.length; i++) {
         DUI.load(matches[i], opts);
@@ -106,6 +117,8 @@ DUI = function(deps, action, opts) {
 DUI.loading = [];
 DUI.actions = [];
 DUI.currentQ = DUI.actions[DUI.actions.push([]) - 1];
+DUI.deferred = [];
+DUI.internals = [];
 DUI.loadedScripts = [];
 DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
 DUI.scriptURL = 'http://' + window.location.hostname + '/';
@@ -121,8 +134,8 @@ DUI.load = function(module, opts) {
     }
 
     //^http - url, leave intact
-    //DUI. - scriptDir/DUI/(match).js
-    //else - scriptDir/(match.replace(':', '/')).js
+    //DUI. - scriptDir/DUI/(match)
+    //else - scriptDir/(match.replace(':', '/'))
 
     //split on :, look for _foo, check if DUI.maps._foo, replace _foo with mapped value, join(':')
     var loadStr = module, parts = module.split(/:(?!\/\/)/);
@@ -132,13 +145,8 @@ DUI.load = function(module, opts) {
     module = parts.join('/');
 
     var src = module.indexOf('http') == 0 ? module :
-        (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module + '.js' :
-        DUI.scriptURL + module + '.js');
-
-    //If a map injects http in, make sure it's a real-ass url, k?
-    //TODO: By now everything starts with http. Refactor src assignment tomorrow
-    //TODO: File extension doesn't need to be ".js", deal with this
-    if(src.indexOf('http') == 0 && src.indexOf('.js') != src.length - 3) src += '.js';
+        (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module :
+        DUI.scriptURL + module);
 
     if(DUI.debug) {
         var delim = src.search(/(\?|&)/) > -1 ? '&' : '?';
@@ -151,6 +159,9 @@ DUI.load = function(module, opts) {
     jq[a]('type', 'text/javascript');
     jq[a]('src', src);
     jq.onload = function() { DUI.loaded(loadStr, opts); };
+    jq.onerror = function(e, u, s) {
+        throw 'DUI could not load the following script: ' + u;
+    };
     jq.onreadystatechange = function() {
         if('loadedcomplete'.indexOf(jq.readyState) > -1) {
             DUI.loaded(loadStr, opts);
@@ -172,6 +183,12 @@ DUI.loaded = function(module) {
             while(q.length > 0) {
                 var func = q.pop();
                 func.apply(DUI);
+            }
+        }
+
+        if(DUI.deferred.length) {
+            while(DUI.deferred.length > 0) {
+                DUI.deferred.pop().apply(DUI);
             }
         }
 
@@ -198,31 +215,43 @@ var d = document, add = 'addEventListener', att = 'attachEvent', boot = function
 
     if(e.button == 2 || e.ctrlKey || e.metaKey) return;
 
-    var y = e.type, t = e.target || e.srcElement, c = t.className, m = c.match(/(?:^|\s)_(click|hover):(\S+)(?:$|\s)/), h = '';
+    var y = e.type, t = e.target || e.srcElement;
 
-    if(m && m[1] && m[2]) {
-        if((m[1] == 'hover' && y == 'mouseover')
-            || (m[1] == 'click' && y == 'click')) {
 
-            m = m[2];
-        } else return;
+    var walk = function(el, ev) {
+        var c = el.className;
+        var m = c ? c.match(/(?:^|\s)_(click|hover):(\S+)(?:$|\s)/) : undefined;
+        
+        if(m && m[1] && m[2]) {
+            if((m[1] == 'hover' && ev == 'mouseover')
+                || (m[1] == 'click' && ev == 'click')) {
 
-        if(t.className.indexOf('booting') == -1) {
-            t.className = c + ' booting';
+                m = m[2];
+            } else return;
 
-            DUI([m], function() {
-                DUI.clean(m);
+            if(el.className.indexOf('booting') == -1) {
+                el.className = c + ' booting';
 
-                var evt = new $.Event(y);
-                evt.fromDUI = true;
-                $(t).removeClass('booting').trigger(evt);
-            }, {
-                newQ: true
-            });
+                DUI([m], function() {
+                    DUI.clean(m);
+
+                    var evt = new $.Event(ev);
+                    evt.fromDUI = true;
+                    $(el).removeClass('booting').trigger(evt);
+                }, {
+                    newQ: true
+                });
+            }
+
+            e.preventDefault ? e.preventDefault() : e.returnValue = false;
         }
-
-        e.preventDefault ? e.preventDefault() : e.returnValue = false;
-    }
+        
+        if(el.parentNode) {
+            walk(el.parentNode, ev);
+        }
+    };
+    
+    walk(t, y);
 };
 
 var onload = function() {
