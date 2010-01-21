@@ -31,7 +31,7 @@
  * @module DUI
  * @author Micah Snyder <micah@digg.com>
  * @description The Digg User Interface Library
- * @version 1.1.0a
+ * @version 1.1.0b
  * @link http://github.com/digg/dui
  *
  */
@@ -120,12 +120,26 @@ DUI.currentQ = DUI.actions[DUI.actions.push([]) - 1];
 DUI.deferred = [];
 DUI.internals = [];
 DUI.loadedScripts = [];
-DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.js';
+DUI.jQueryURL = 'http://ajax.googleapis.com/ajax/libs/jquery/1.4.0/jquery.min.js';
 DUI.scriptURL = 'http://' + window.location.hostname + '/';
 DUI.maps = {};
 DUI.debug = false;
 
 DUI.load = function(module, opts) {
+    //^http - url, leave intact
+    //DUI. - scriptDir/DUI/(match)
+    //else - scriptDir/(match.replace(':', '/'))
+
+    //split on :, look for _foo, check if DUI.maps._foo, replace _foo with mapped value, join('/')
+    var parts = module.split(/:(?!\/\/)/);
+    for(var i = 0; i < parts.length; i++) {
+        if(DUI.maps[parts[i]]) parts[i] = DUI.maps[parts[i]];
+
+        //DUI.All is a special case that replaces every DUI feature wholesale
+        if(parts[i].indexOf('DUI.') == 0 && DUI.maps['DUI.All']) parts[i] = DUI.maps['DUI.All'];
+    }
+    module = parts.join('/');
+
     if(DUI.loading.indexOf(module) > -1) return;
 
     if(DUI.loadedScripts.indexOf(module) > -1) {
@@ -133,16 +147,7 @@ DUI.load = function(module, opts) {
         return;
     }
 
-    //^http - url, leave intact
-    //DUI. - scriptDir/DUI/(match)
-    //else - scriptDir/(match.replace(':', '/'))
-
-    //split on :, look for _foo, check if DUI.maps._foo, replace _foo with mapped value, join(':')
-    var loadStr = module, parts = module.split(/:(?!\/\/)/);
-    for(var i = 0; i < parts.length; i++) {
-        if(DUI.maps[parts[i]]) parts[i] = DUI.maps[parts[i]];
-    }
-    module = parts.join('/');
+    DUI.loading.push(module);
 
     var src = module.indexOf('http') == 0 ? module :
         (module.indexOf('DUI.') > -1 ? DUI.scriptURL + 'DUI/' + module :
@@ -153,18 +158,16 @@ DUI.load = function(module, opts) {
         src += delim + (new Date()).getTime();
     }
 
-    DUI.loading.push(loadStr);
-
     var d = document, jq = d.createElement('script'), a = 'setAttribute';
     jq[a]('type', 'text/javascript');
     jq[a]('src', src);
-    jq.onload = function() { DUI.loaded(loadStr, opts); };
+    jq.onload = function() { DUI.loaded(module, opts); };
     jq.onerror = function(e, u, s) {
         throw 'DUI could not load the following script: ' + u;
     };
     jq.onreadystatechange = function() {
         if('loadedcomplete'.indexOf(jq.readyState) > -1) {
-            DUI.loaded(loadStr, opts);
+            DUI.loaded(module, opts);
         }
     }
     d.body.appendChild(jq);

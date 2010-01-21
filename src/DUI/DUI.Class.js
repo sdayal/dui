@@ -31,14 +31,15 @@
  * @module DUI
  * @author Micah Snyder <micah@digg.com>
  * @description DUI.Class
- * @version 1.1.0a
+ * @version 1.1.0
  * @link http://github.com/digg/dui
  *
  */
 
-DUI(function() {
+//It's possible to use DUI.Class without the DUI boot loader, despite what a weak choice that is :P
+if(typeof DUI == 'undefined') DUI = {};
 
-$.extend(true, DUI, {
+$.extend(DUI, {
     /**
      * @function isClass Check so see if the first argument passed in is a DUI Class
      * @param {mixed} check Object to check for classiness.
@@ -47,7 +48,7 @@ $.extend(true, DUI, {
     isClass: function(check, type)
     {
         type = type === undefined ? null : Boolean(type);
-        
+
         try {
             if(check._ident.library == 'DUI.Class') {
                 if(type === null
@@ -57,14 +58,14 @@ $.extend(true, DUI, {
                 }
             }
         } catch(noIdentUhOh) {}
-        
+
         return false;
     },
-    
+
     /**
      * @function global Operate on a global namespace
      * @see DUI.Class.prototype.ns
-     */ 
+     */
     global: function(ns, value)
     {
         //DUI.global(['some.namespace', context], value);
@@ -72,7 +73,7 @@ $.extend(true, DUI, {
             var context = ns[1] || undefined;
             ns = ns[0];
         }
-        
+
         return DUI.Class.prototype.ns.apply(context ? context : window, [ns, value]);
     }
 });
@@ -85,21 +86,21 @@ DUI.Class = function()
     return this.constructor.prototype._bootstrap.apply(this.constructor, arguments);
 }
 
-$.extend(true, DUI.Class.prototype, {
+$.extend(DUI.Class.prototype, {
     /**
      * @var {Array} _dontEnum Internal array of keys to omit when looking through a class' properties. Once the real DontEnum bit is writable we won't have to deal with this.
      */
     _dontEnum: ['prototype', '_dontEnum', '_ident', '_bootstrap', 'init', 'create', 'ns', 'each'],
-    
+
     /**
      * @var {Object} _ident Internal properties that describe this class
      */
     _ident: {
         library: "DUI.Class",
-        version: "1.0.0",
+        version: "1.1.0",
         dynamic: true
     },
-    
+
     /**
      * @function _bootstrap Return a new class by passing the 'create' method through into a new function.
      * @see DUI.Class.prototype.create
@@ -107,21 +108,29 @@ $.extend(true, DUI.Class.prototype, {
     _bootstrap: function()
     {
         var copy = function() {
-            return function() {
+            return function() {                             
+                 //JavaScript will naturally share Objects in memory between the Class' prototype and its instances
+                //To get around this, if we see an Object inherited into an instance, we clone it and re-attach it
+                for(prop in this) {
+                    if($.isPlainObject(this[prop])) {
+                        this[prop] = $.extend(true, {}, this[prop]);
+                    }
+                }
+                
                 this.init.apply(this, arguments);
             }
         }.apply(copy);
-        
+
         $.extend(true, copy.prototype, this.prototype);
         return copy.prototype.create.apply(copy, arguments);
     },
-    
+
     /**
      * @function init Constructor for created classes. Unused by DUI.Class itself.
      */
     init: function()
     {},
-    
+
     /**
      * @function create Make a class from DUI.Class' prototype. Do work son, do work.
      * Usage 1: new DUI.Class(methods, static);
@@ -134,54 +143,58 @@ $.extend(true, DUI.Class.prototype, {
     {
         //For clarity, let's get rid of an instance of "this" in the code
         var _class = this;
-        
+
         //Get the last argument...
         var s = Array.prototype.slice.apply(arguments).reverse()[0] || null;
         //...and check to see if it's boolean: false (default) = dynamic class, true = static class
         s = s !== null && s.constructor == Boolean ? s : false;
-        
+
         //Static: extend the Object, Dynamic: extend the prototype
         var extendee = s ? _class : _class.prototype;
-        
+
         //Foo.create('Bar', {}) usage
         if(arguments.length > 0 && arguments[0].constructor == String) {
             var args = Array.prototype.slice.call(arguments);
             var name = args.shift();
             _class[name] = _class.create.apply(_class, args);
-            
+
             return _class[name];
         }
-        
+
         //Change the ident for static classes
         if(s) _class.prototype._ident.dynamic = false;
-        
+
         //This is where it gets weird: Copy helpers in from the proto
         $.each(['_dontEnum', '_ident', 'create', 'ns', 'each'], function() {
             _class[this] = _class.prototype[this];
         });
-        
+
         //Loop through arguments. If they're the right type, tack them on
         $.each(arguments, function() {
             var arg = this;
-            
+
             //Either we're passing in an object full of methods, or an existing class, or DUI itself while bootstrapping
             if(arg.constructor == Object || DUI.isClass(arg) || arg == DUI) {
                 //If arg is a dynamic class, pull from its prototype
                 var payload = DUI.isClass(arg, false) ? arg.prototype : arg;
-                
+
                 //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
                 //TODO: Fixed in 1.3.3, return this to its original state
                 //to pass DUI in while bootstrapping, we need to be able to loop over a function
                 /* for(var key in payload) {
                     var val = payload[key];
-                    
+
                     if(key == 'dontEnum' && val.constructor == Array) {
                         extendee._dontEnum = $.merge(extendee._dontEnum, val);
                     } else {
-                        extendee[key] = val;
+                        //extendee[key] = val;
+                        var copy = {};
+                        copy[key] = val;
+
+                        $.extend(true, extendee, copy);
                     }
                 } */
-                
+
                 /* Here we're going per-property instead of doing $.extend(extendee, this) so that
                  * we overwrite each property instead of the whole namespace. */
                 $.each(payload, function(key, val) {
@@ -197,30 +210,17 @@ $.extend(true, DUI.Class.prototype, {
 
                     //Add the current property to our class
                     //extendee[key] = val;
-                    var copy = {}, valCopy;
-                    
-                    if(val && val.constructor == Object) {
-                        //console.log('Copying object:', key);
-                        
-                        valCopy = {};
-                        
-                        $.extend(true, valCopy, val);
-                    } else {
-                        valCopy = val;
-                    }
-                    
-                    copy[key] = valCopy;
-                    
+                    var copy = {};
+                    copy[key] = val;
+
                     $.extend(true, extendee, copy);
-                    
-                    //console.log(extendee[key] === val);
                 });
             }
         });
-        
+
         return _class;
     },
-    
+
     /**
      * @function ns Make a namespace within a class
      * Usage 1: MyClass.ns('foo.bar');
@@ -234,32 +234,32 @@ $.extend(true, DUI.Class.prototype, {
     ns: function()
     {
         if(arguments.length == 0) throw new Error('DUI.Class.ns should probably have some arguments passed to it.');
-        
+
         var arg = arguments[0];
         var levels = null;
         var get = (arguments.length == 1 || arguments[1] === undefined) && arg.constructor != Object ? true : false;
-        
+
         if(arg.constructor == String) {
             var dummy = {};
             dummy[arg] = arguments[1] ? arguments[1] : undefined;
-            
+
             arg = dummy;
         }
-        
+
         if(arg.constructor == Object) {
             var _class = this, miss = false, last = this;
-            
+
             $.each(arg, function(nsName, nsValue) {
                 //Reset nsobj back to the top each time
                 var nsobj = _class;
                 var levels = nsName.split('.');
-                
+
                 $.each(levels, function(i, level) {
                     //First, are we using ns as a getter? Also, did our get attempt fail?
                     if(get && typeof nsobj[level] == 'undefined') {
                         //Dave's not here, man
                         miss = true;
-                        
+
                         //Break out of each
                         return false;
                     }
@@ -268,7 +268,6 @@ $.extend(true, DUI.Class.prototype, {
                         //nsobj[level] = nsValue;
                         var copy = {};
                         copy[level] = nsValue;
-                        
                         $.extend(true, nsobj, copy);
                     }
                     //...nope, not yet. Check to see if the ns doesn't already exist in our class...
@@ -276,7 +275,7 @@ $.extend(true, DUI.Class.prototype, {
                         //...and make it a new static class
                         nsobj[level] = new DUI.Class(true);
                     }
-                    
+
                     //Move one level deeper for the next iteration
                     last = nsobj = nsobj[level];
                 });
@@ -285,7 +284,7 @@ $.extend(true, DUI.Class.prototype, {
             return miss ? undefined : last;
         }
     },
-    
+
     /**
      * @function each Iterate through a Class' user-defined properties
      * @param {Function} iter Iterator function that takes two optional arguments: key and value
@@ -296,17 +295,17 @@ $.extend(true, DUI.Class.prototype, {
         if(!$.isFunction(iter)) {
             throw new Error('DUI.Class.each must be called with a function as its first argument.');
         }
-        
+
         var _class = this;
-        
+
         //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
         //TODO: Fixed in 1.3.3, return this to its original state
         /* $.each(this, function(key) {
             if($.inArray(key, _class._dontEnum) != -1) return;
-            
+
             iter.apply(this, [key, this]);
         }); */
-        
+
         for(var key in _class) {
             if($.inArray(key, _class._dontEnum) == -1) {
                 var val = _class[key];
@@ -317,5 +316,3 @@ $.extend(true, DUI.Class.prototype, {
 });
 
 $.extend(true, DUI, DUI.Class.prototype);
-
-});
