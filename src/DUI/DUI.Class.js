@@ -1,7 +1,7 @@
 /**
  * DUI.Class: OOJS for the Digg User Interface Library
  *
- * Copyright (c) 2008-2009, Digg, Inc.
+ * Copyright (c) 2008-2010, Digg, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without 
@@ -31,7 +31,8 @@
  * @module DUI
  * @author Micah Snyder <micah@digg.com>
  * @description DUI.Class
- * @version 1.1.0
+ * @version 1.1.0b
+ * @requires jQuery >= 1.4.0
  * @link http://github.com/digg/dui
  *
  */
@@ -97,7 +98,6 @@ $.extend(DUI.Class.prototype, {
      */
     _ident: {
         library: "DUI.Class",
-        version: "1.1.0",
         dynamic: true
     },
 
@@ -178,43 +178,15 @@ $.extend(DUI.Class.prototype, {
                 //If arg is a dynamic class, pull from its prototype
                 var payload = DUI.isClass(arg, false) ? arg.prototype : arg;
 
-                //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
-                //TODO: Fixed in 1.3.3, return this to its original state
-                //to pass DUI in while bootstrapping, we need to be able to loop over a function
-                /* for(var key in payload) {
+                for(var key in payload) {
                     var val = payload[key];
 
                     if(key == 'dontEnum' && val.constructor == Array) {
                         extendee._dontEnum = $.merge(extendee._dontEnum, val);
                     } else {
-                        //extendee[key] = val;
-                        var copy = {};
-                        copy[key] = val;
-
-                        $.extend(true, extendee, copy);
+                        extendee[key] = val;
                     }
-                } */
-
-                /* Here we're going per-property instead of doing $.extend(extendee, this) so that
-                 * we overwrite each property instead of the whole namespace. */
-                $.each(payload, function(key, val) {
-                    /* Note: We're using val instead of this because if val is null,
-                     * jQuery.each will apply the iterator such that this == window instead of null */
-
-                    //If 'dontEnum' is passed in as an array, add its contents to DUI.Class._dontEnum
-                    if(key == 'dontEnum' && val.constructor == Array) {
-                        extendee._dontEnum = $.merge(extendee._dontEnum, val);
-
-                        return;
-                    }
-
-                    //Add the current property to our class
-                    //extendee[key] = val;
-                    var copy = {};
-                    copy[key] = val;
-
-                    $.extend(true, extendee, copy);
-                });
+                }
             }
         });
 
@@ -265,10 +237,7 @@ $.extend(DUI.Class.prototype, {
                     }
                     //Ok, so we're setting. Is it time to set yet or do we move on?
                     else if(i == levels.length - 1 && nsValue) {
-                        //nsobj[level] = nsValue;
-                        var copy = {};
-                        copy[level] = nsValue;
-                        $.extend(true, nsobj, copy);
+                        nsobj[level] = nsValue;
                     }
                     //...nope, not yet. Check to see if the ns doesn't already exist in our class...
                     else if(typeof nsobj[level] == 'undefined') {
@@ -298,20 +267,11 @@ $.extend(DUI.Class.prototype, {
 
         var _class = this;
 
-        //$.each tweaks out on Functions. See: http://dev.jquery.com/ticket/2827
-        //TODO: Fixed in 1.3.3, return this to its original state
-        /* $.each(this, function(key) {
+        $.each(this, function(key) {
             if($.inArray(key, _class._dontEnum) != -1) return;
 
             iter.apply(this, [key, this]);
-        }); */
-
-        for(var key in _class) {
-            if($.inArray(key, _class._dontEnum) == -1) {
-                var val = _class[key];
-                iter.apply(val, [key, val]);
-            }
-        }
+        });
     }
 });
 

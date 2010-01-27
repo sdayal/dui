@@ -251,6 +251,31 @@ YUI({ useBrowserConsole: false }).use('console', 'test', function(Y) {
         }
     }));
     
+    suite.add(new Y.Test.Case({
+        name: "Bypass Function.prototype Object sharing",
+        
+        setUp: function() {
+            this.sharedClass = new DUI.Class({
+                foo: {
+                    bar: 1
+                }
+            });
+            
+            this.sharedInstance = new this.sharedClass();
+            this.sharedInstance.foo.bar = 'LALALA';
+        },
+        
+        tearDown: function() {
+            delete this.sharedClass;
+            delete this.sharedInstance;
+        },
+        
+        testClassWithoutSharedObject: function() {
+            Y.Assert.areSame(1, this.sharedClass.prototype.foo.bar, "Class definition's protoyped Object foo should have prop bar == 1");
+            Y.Assert.areSame('LALALA', this.sharedInstance.foo.bar, "Class instance should have Object foo, prop bar == 'LALALA'");
+        }
+    }));
+    
     var console = new Y.Console({
         newestOnTop: false
     }).render();
