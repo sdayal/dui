@@ -4,7 +4,7 @@ DUI(function() {
     var Foo = new DUI.Class({
         stuff: {
             one: 1,
-            two: 'teeeewww'
+            two: 'teddeeewww'
         }
     });
 });
